@@ -112,3 +112,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Added over default
+.idea/
+.idea/vcs.xml
