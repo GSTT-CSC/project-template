@@ -10,8 +10,8 @@ This repository contains a skeleton project template for use with new GSTT-CSC p
 
 A complete example of an AI application for 3D spleen segmentation using this template can be found [here](https://github.com/GSTT-CSC/MLOps_test_project.git).
 
-# Structure
-At the bare minimum users should use the `Experiment` class and the provided `run_project.py` script to set up their experiement.
+## Structure
+At a minimum users should use the `Experiment` class and the provided `run_project.py` script to set up their experiment.
 
 This template suggests using pytorch-lightning and MONAI for network configuration and DataModules. 
 However, this is not strictly necessary and provided the Dockerfile GPU libraries are adapted and the `run_project` function is used then tracking can be performed with any [MLflow compatible framework](https://mlflow.org/docs/latest/tracking.html#automatic-logging).
@@ -29,7 +29,7 @@ The `project` directory should be renamed to make it clear that it contains your
 
 There are 3 main components that need to be completed after cloning the template:
 
-### `config/config.cfg`
+### 1. `config/config.cfg`
 The config file contains all the information that is used for configuring up the project, experiment, and tracking server. 
 The config file path is passed as an argument to the `Experiment` class where the experiment and tracking are configured. 
 
@@ -41,10 +41,10 @@ You can sepcifiy any number of custom entry points. For example, if you had a sc
 under `main`. Entry points can be selected at runtime by adding the `-e` flag to `run_project` e.g. `python run_project.py -e optimise`.
 
 
-### `project/Network.py`
+### 2. `project/Network.py`
 This file is used to define the pytorch `LightningModule` class.
 
-### `project/DataModule.py`
+### 3. `project/DataModule.py`
 This file is used to define the pytorch `LightningDataModule` class.
 
 ## Contact
