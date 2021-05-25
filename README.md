@@ -1,9 +1,24 @@
+<!-- PROJECT HEADING -->
+<br />
+<p align="center">
+<a href="https://github.com/github_username/repo_name">
+    <img src="https://raw.githubusercontent.com/GSTT-CSC/gstt-csc.github.io/csc-logo-update/assets/transparent-CSC-logo.png" alt="Logo" width="75%">
+  </a>
+<h3 align="center">Project_template</h3>
+<p align="center">
+A continuous integration and deployment framework for healthcare AI projects
+<br />
+<a href="https://github.com/github_username/repo_name"><strong>Explore the docs »</strong></a>
+<br />
+<br />
+<a href="https://github.com/GSTT-CSC/Project_template">View repo</a>
+·
+<a href="https://github.com/GSTT-CSC/Project_template/issues">Report Bug</a>
+·
+<a href="https://github.com/GSTT-CSC/Project_template/issues">Request Feature</a>
+</p>
+
 # New project template
-todo:
-need to describe data template and DVC usage
-netapp disk: (e.g. maybe)
-    ProjectDirectory.csv
-    DATA/project1/dataversion1/
 
 ## Introduction
 This repository contains a skeleton project template for use with new GSTT-CSC projects. The template provides a starting point with pre-configured access to local GPU resources and MLflow tracking.
@@ -22,6 +37,11 @@ This project template makes use of the `Experiment` class from https://github.co
 ```shell
 git clone https://github.com/GSTT-CSC/MLOps.git
 pip install MLOps/
+```
+
+To run your project once you've set it up following the guidelines below execute the run_project.py script, run the following for usage information.
+```shell 
+python3 run_project.py --help
 ```
 
 The first thing to do after cloning this template is to rename the appropriate files and folders to make the directory project specific. 
@@ -46,6 +66,12 @@ This file is used to define the pytorch `LightningModule` class.
 
 ### 3. `project/DataModule.py`
 This file is used to define the pytorch `LightningDataModule` class.
+
+## todo:
+* need to describe data template and DVC usage
+* netapp disk: (e.g. maybe)
+  * ProjectDirectory.csv
+  * DATA/project1/dataversion1/
 
 ## Contact
 For bug reports and feature requests please raise a GitHub issue on this repository.
