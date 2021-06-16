@@ -1,0 +1,63 @@
+   | Name                                | Type             | Params
+--------------------------------------------------------------------------
+0  | loss_function                       | CrossEntropyLoss | 0     
+1  | _model                              | Classifier       | 134 M 
+2  | _model.net                          | Sequential       | 76.3 K
+3  | _model.net.layer_0                  | ResidualUnit     | 682   
+4  | _model.net.layer_0.conv             | Sequential       | 666   
+5  | _model.net.layer_0.conv.unit0       | Convolution      | 81    
+6  | _model.net.layer_0.conv.unit0.conv  | Conv2d           | 80    
+7  | _model.net.layer_0.conv.unit0.adn   | ADN              | 1     
+8  | _model.net.layer_0.conv.unit0.adn.N | InstanceNorm2d   | 0     
+9  | _model.net.layer_0.conv.unit0.adn.A | PReLU            | 1     
+10 | _model.net.layer_0.conv.unit1       | Convolution      | 585   
+11 | _model.net.layer_0.conv.unit1.conv  | Conv2d           | 584   
+12 | _model.net.layer_0.conv.unit1.adn   | ADN              | 1     
+13 | _model.net.layer_0.conv.unit1.adn.N | InstanceNorm2d   | 0     
+14 | _model.net.layer_0.conv.unit1.adn.A | PReLU            | 1     
+15 | _model.net.layer_0.residual         | Conv2d           | 16    
+16 | _model.net.layer_1                  | ResidualUnit     | 3.6 K 
+17 | _model.net.layer_1.conv             | Sequential       | 3.5 K 
+18 | _model.net.layer_1.conv.unit0       | Convolution      | 1.2 K 
+19 | _model.net.layer_1.conv.unit0.conv  | Conv2d           | 1.2 K 
+20 | _model.net.layer_1.conv.unit0.adn   | ADN              | 1     
+21 | _model.net.layer_1.conv.unit0.adn.N | InstanceNorm2d   | 0     
+22 | _model.net.layer_1.conv.unit0.adn.A | PReLU            | 1     
+23 | _model.net.layer_1.conv.unit1       | Convolution      | 2.3 K 
+24 | _model.net.layer_1.conv.unit1.conv  | Conv2d           | 2.3 K 
+25 | _model.net.layer_1.conv.unit1.adn   | ADN              | 1     
+26 | _model.net.layer_1.conv.unit1.adn.N | InstanceNorm2d   | 0     
+27 | _model.net.layer_1.conv.unit1.adn.A | PReLU            | 1     
+28 | _model.net.layer_1.residual         | Conv2d           | 144   
+29 | _model.net.layer_2                  | ResidualUnit     | 14.4 K
+30 | _model.net.layer_2.conv             | Sequential       | 13.9 K
+31 | _model.net.layer_2.conv.unit0       | Convolution      | 4.6 K 
+32 | _model.net.layer_2.conv.unit0.conv  | Conv2d           | 4.6 K 
+33 | _model.net.layer_2.conv.unit0.adn   | ADN              | 1     
+34 | _model.net.layer_2.conv.unit0.adn.N | InstanceNorm2d   | 0     
+35 | _model.net.layer_2.conv.unit0.adn.A | PReLU            | 1     
+36 | _model.net.layer_2.conv.unit1       | Convolution      | 9.2 K 
+37 | _model.net.layer_2.conv.unit1.conv  | Conv2d           | 9.2 K 
+38 | _model.net.layer_2.conv.unit1.adn   | ADN              | 1     
+39 | _model.net.layer_2.conv.unit1.adn.N | InstanceNorm2d   | 0     
+40 | _model.net.layer_2.conv.unit1.adn.A | PReLU            | 1     
+41 | _model.net.layer_2.residual         | Conv2d           | 544   
+42 | _model.net.layer_3                  | ResidualUnit     | 57.5 K
+43 | _model.net.layer_3.conv             | Sequential       | 55.4 K
+44 | _model.net.layer_3.conv.unit0       | Convolution      | 18.5 K
+45 | _model.net.layer_3.conv.unit0.conv  | Conv2d           | 18.5 K
+46 | _model.net.layer_3.conv.unit0.adn   | ADN              | 1     
+47 | _model.net.layer_3.conv.unit0.adn.N | InstanceNorm2d   | 0     
+48 | _model.net.layer_3.conv.unit0.adn.A | PReLU            | 1     
+49 | _model.net.layer_3.conv.unit1       | Convolution      | 36.9 K
+50 | _model.net.layer_3.conv.unit1.conv  | Conv2d           | 36.9 K
+51 | _model.net.layer_3.residual         | Conv2d           | 2.1 K 
+52 | _model.reshape                      | Reshape          | 0     
+53 | _model.final                        | Sequential       | 134 M 
+54 | _model.final.0                      | Flatten          | 0     
+55 | _model.final.1                      | Linear           | 134 M 
+--------------------------------------------------------------------------
+134 M     Trainable params
+0         Non-trainable params
+134 M     Total params
+537.176   Total estimated model params size (MB)

@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/lj16/code/Other/carnax_dgx/mlruns/0/0d7e94ad28a743c3a8bc698b376ca5de/artifacts
+end_time: 1623858653660
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+name: ''
+run_id: 0d7e94ad28a743c3a8bc698b376ca5de
+run_uuid: 0d7e94ad28a743c3a8bc698b376ca5de
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1623858328827
+status: 4
+tags: []
+user_id: lj16
