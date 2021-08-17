@@ -2,6 +2,7 @@
 id: TESTREC-001
 title: Software Test Record
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

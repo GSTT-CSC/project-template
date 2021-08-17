@@ -3,6 +3,7 @@ id: SD-001
 revision: 1
 title: Software Description
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Note
 

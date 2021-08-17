@@ -2,6 +2,7 @@
 id: RELEASEREC-001
 title: Software Release Record
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

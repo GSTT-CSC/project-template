@@ -3,6 +3,7 @@ id: SRS-001
 revision: 1
 title: Software Requirements Specification
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

@@ -3,6 +3,7 @@ id: SDS-001
 revision: 1
 title: Software Design Specification
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

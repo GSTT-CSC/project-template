@@ -3,6 +3,7 @@ id: NOTE-001
 revision: 1
 title: Note About Missing Requirements
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

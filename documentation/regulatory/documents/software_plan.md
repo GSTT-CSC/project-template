@@ -3,6 +3,7 @@ id: PLAN-001
 revision: 1
 title: Software Plan
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

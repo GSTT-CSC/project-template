@@ -3,6 +3,7 @@ id: LOC-001
 revision: 1
 title: Level of Concern
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

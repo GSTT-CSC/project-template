@@ -3,6 +3,7 @@ id: HA-001
 revision: 1
 title: Device Hazard Analysis
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

@@ -2,6 +2,7 @@
 id: RELEASE-001
 title: Release History
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Purpose
 

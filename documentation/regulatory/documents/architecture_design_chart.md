@@ -3,6 +3,7 @@ id: ADC-001
 revision: 1
 title: Architecture Design Chart
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Note
 

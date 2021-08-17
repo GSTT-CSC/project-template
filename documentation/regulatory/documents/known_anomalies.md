@@ -3,6 +3,7 @@ id: KNANOM-001
 revision: 1
 title: Known Anomalies
 ---
+![CSC Logo](./images/CSC-logo.png)
 
 # Note
 
