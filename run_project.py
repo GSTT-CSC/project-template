@@ -17,7 +17,7 @@ if __name__ == '__main__':
                         help='entry point to project')
     parser.add_argument('-c', dest='config_path', action='store', default='config/config.cfg',
                         help='entry point to project')
-    parser.add_argument('-l', dest='use_localhost', action='store_true', default=False,
+    parser.add_argument('-l', dest='use_localhost', type=bool, action='store_true', default=False,
                         help='use localhost flag')
     args = parser.parse_args()
 
