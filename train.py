@@ -11,7 +11,7 @@ def train(data_dir):
     net = Network(data_dir=data_dir)
     dm = DataModule(data_dir=data_dir, batch_size=4)
 
-    #  start logged run
+    #  start logged run-
     mlflow.pytorch.autolog()
     with mlflow.start_run() as run:
         trainer = pl.Trainer(logger=True,
