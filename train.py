@@ -7,7 +7,7 @@ from torch.cuda import is_available as cuda_available
 
 def train(data_dir):
 
-    # initialise netowrk and datamodule
+    # initialise network and datamodule
     net = Network(data_dir=data_dir)
     dm = DataModule(data_dir=data_dir, batch_size=4)
 
@@ -19,8 +19,9 @@ def train(data_dir):
                              accelerator='ddp'
                              )
         trainer.fit(net, dm)
+        trainer.test(datamodule=dm)
 
 
 if __name__ == '__main__':
-    data_dir = '/DATA/Task09_Spleen/'
+    data_dir = '/DATA'
     train(data_dir)

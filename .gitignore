@@ -115,3 +115,5 @@ dmypy.json
 
 # Added over default
 .idea/
+
+pytest.xml
