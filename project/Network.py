@@ -47,6 +47,18 @@ class Network(pytorch_lightning.LightningModule):
         loss = self.loss_function(y_hat, y)
         return loss
 
+    def test_step(self, batch, batch_idx):
+        """
+        test step
+        :param batch:
+        :param batch_idx:
+        :return: loss
+        """
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_function(y_hat, y)
+        return loss
+
     def configure_optimizers(self):
         """
         Setup optimiser
