@@ -10,11 +10,13 @@ env:
   PROJECT_NAME: template
   APPLICATION_DIR: project
   TEST_DIR: tests
-  COV_GIST_BADGEID: create_a_gist_badge_id
-  COV_GIST_NAME: create_a_gist_name
+  COV_GIST_BADGEID: createagistbadgeid
+  COV_GIST_NAME: createagistname
 
 jobs:
+
   build-and-test:
+
     runs-on: ubuntu-latest
 
     steps:
