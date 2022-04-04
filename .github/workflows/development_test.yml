@@ -15,7 +15,7 @@ env:
 
 jobs:
 
-  build:
+  build-and-test:
 
     runs-on: ubuntu-latest
 
@@ -36,25 +36,25 @@ jobs:
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
           docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
-    - name: Test with pytest
-      run: |
-        coverage run -m --source=project pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=$APPLICATION_DIR $TEST_DIR/ | tee pytest-coverage.txt
+      - name: Test with pytest
+        run: |
+          coverage run -m --source=project pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=$APPLICATION_DIR $TEST_DIR/ | tee pytest-coverage.txt
 
-    - name: Pytest coverage comment
-      id: coverageComment
-      uses: MishaKav/pytest-coverage-comment@main
-      with:
-        pytest-coverage-path: ./pytest-coverage.txt
-        junitxml-path: ./pytest.xml
+      - name: Pytest coverage comment
+        id: coverageComment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
 
-    - name: Create coverage Badge
-      uses: schneegans/dynamic-badges-action@v1.0.0
-      with:
-        auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
-        gistID: $GIST_BADGEID
-        filename: $COV_GIST_NAME
-        label: Test coverage
-        message: ${{ steps.coverageComment.outputs.coverage }}
-        color: ${{ steps.coverageComment.outputs.color }}
-        namedLogo: python
+      - name: Create coverage Badge
+        uses: schneegans/dynamic-badges-action@v1.0.0
+        with:
+          auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
+          gistID: $GIST_BADGEID
+          filename: $COV_GIST_NAME
+          label: Test coverage
+          message: ${{ steps.coverageComment.outputs.coverage }}
+          color: ${{ steps.coverageComment.outputs.color }}
+          namedLogo: python
 
