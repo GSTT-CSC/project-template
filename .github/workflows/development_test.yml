@@ -32,9 +32,9 @@ jobs:
       - name: Lint with flake8
         run: |
           # stop the build if there are Python syntax errors or undefined names
-          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 /$APPLICATION_DIR --count --select=E9,F63,F7,F82 --show-source --statistics
           # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 /$APPLICATION_DIR --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Test with pytest
         run: |
@@ -57,4 +57,3 @@ jobs:
           message: ${{ steps.coverageComment.outputs.coverage }}
           color: ${{ steps.coverageComment.outputs.color }}
           namedLogo: python
-
