@@ -2,11 +2,11 @@
 <br />
 <p align="center">
 <a href="https://github.com/github_username/repo_name">
-    <img src="https://raw.githubusercontent.com/GSTT-CSC/gstt-csc.github.io/csc-logo-update/assets/transparent-CSC-logo.png" alt="Logo" width="75%">
+    <img src="assets/MOps_template_logo.png" alt="Logo" width="75%">
   </a>
 <h3 align="center">Project_template</h3>
 <p align="center">
-A continuous integration and deployment framework for healthcare AI projects
+A template for developing AI applications for healthcare
 <br />
 <br />
 <a href="https://github.com/GSTT-CSC/Project_template">View repo</a>
