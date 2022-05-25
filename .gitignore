@@ -117,3 +117,4 @@ dmypy.json
 .idea/
 
 pytest.xml
+pytest-coverage.txt
