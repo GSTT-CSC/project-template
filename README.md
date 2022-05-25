@@ -4,7 +4,6 @@
 <a href="https://github.com/github_username/repo_name">
     <img src="assets/MOps_template_logo.png" alt="Logo" width="50%">
   </a>
-<h3 align="center">Project_template</h3>
 <p align="center">
 A template for developing AI applications for healthcare
 <br />
