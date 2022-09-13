@@ -1,9 +1,27 @@
-FROM python:3.9
+# Dockerfile uses multi-stage buidl to reduce the size of final images.
+# uses python 3.9 by default
 
-# install torch with precompiled cuda libraries
-RUN python3 -m pip install --upgrade pip
-RUN python3 -m pip install torch==1.8.1+cu111 torchvision==0.9.1+cu111 torchaudio==0.8.1 -f https://download.pytorch.org/whl/torch_stable.html
+FROM nvidia/cuda:11.4.0-devel-ubuntu18.04 AS build
+RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
 
-# Configure application
-ADD requirements.txt .
-RUN python3 -m pip install -r requirements.txt
+RUN python3.9 -m venv /opt/venv
+# Make sure we use the virtualenv:
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /APP
+COPY . .
+
+# install requirements
+RUN python -m pip install --upgrade pip && python -m pip install wheel
+RUN python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu110
+RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt && python setup.py install
+
+FROM nvidia/cuda:11.4.0-runtime-ubuntu18.04
+RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
+
+COPY --from=build /opt/venv /opt/venv
+WORKDIR /APP
+COPY . .
+
+# Make sure we use the virtualenv:
+ENV PATH="/opt/venv/bin:$PATH"
