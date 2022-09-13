@@ -3,7 +3,7 @@
 
 FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS build
 RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
-
+ARG DEBIAN_FRONTEND=noninteractive
 RUN python3.9 -m venv /opt/venv
 # Make sure we use the virtualenv:
 ENV PATH="/opt/venv/bin:$PATH"
