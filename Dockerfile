@@ -4,7 +4,9 @@
 FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS build
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
+RUN apt-get update &&  \
+    apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv && \
+    rm -rf /var/lib/apt/lists/* \
 
 # Make sure we use the virtualenv:
 RUN python3.9 -m venv /opt/venv
@@ -20,7 +22,9 @@ RUN python -m pip install torch torchvision torchaudio --extra-index-url https:/
 RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt
 
 FROM nvidia/cuda:11.4.0-runtime-ubuntu20.04
-RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
+RUN apt-get update &&  \
+    apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv && \
+    rm -rf /var/lib/apt/lists/* \
 
 # copy build files
 COPY --from=build /opt/venv /opt/venv
