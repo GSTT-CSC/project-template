@@ -17,7 +17,7 @@ COPY . .
 # install requirements
 RUN python -m pip install --upgrade pip && python -m pip install wheel
 RUN python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu114
-RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt && python setup.py install
+RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt
 
 FROM nvidia/cuda:11.4.0-runtime-ubuntu20.04
 RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
