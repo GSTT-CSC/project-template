@@ -2,12 +2,15 @@
 # uses python 3.9 by default
 
 FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS build
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
-ARG DEBIAN_FRONTEND=noninteractive
-RUN python3.9 -m venv /opt/venv
+
 # Make sure we use the virtualenv:
+RUN python3.9 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# move project files
 WORKDIR /APP
 COPY . .
 
@@ -19,6 +22,7 @@ RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt && py
 FROM nvidia/cuda:11.4.0-runtime-ubuntu20.04
 RUN apt-get update && apt-get install -y build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv
 
+# copy build files
 COPY --from=build /opt/venv /opt/venv
 WORKDIR /APP
 COPY . .
