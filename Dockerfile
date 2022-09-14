@@ -1,5 +1,5 @@
 # Dockerfile uses multi-stage build to reduce the size of final images.
-# uses python 3.9 by default
+# uses python 3.10 by default
 
 FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS build
 
