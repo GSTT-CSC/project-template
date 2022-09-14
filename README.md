@@ -46,11 +46,16 @@ There are 3 main components that need to be completed after cloning the template
 The config file contains all the information that is used for configuring up the project, experiment, and tracking server. 
 The config file path is passed as an argument to the `Experiment` class where the experiment and tracking are configured. 
 
-Note: The values present in the template config file are the minimum required, be careful not to remove any but adding new ones to help configure parts of your project is encourages (e.g. entry points).
+Note: The values present in the template config file are the minimum required, be careful not to remove any but adding new ones to help configure parts of your project is encouraged (e.g. entry points).
 
 #### `[entry_points]`
-The entry points defined here allow you to enter the project through different routes. It is necessary to define at least one entry_point called `main`, in this case `main` runs the command `python3 main.py`. 
-You can sepcifiy any number of custom entry points. For example, if you had a script that performed hyperparamter optimisation you might want to trigger that workflow by defining another entry point `optimise = python3 optimisation.py`
+The entry points defined here allow you to enter the project through different routes. It is necessary to define at least one entry_point called `main`, for example including the line:
+```
+main = python3 train.py
+```
+will run the command `python3 train.py` when the main entry point is requested.
+
+You can specify any number of custom entry points. For example, if you had a script that performed hyperparameter optimisation you might want to trigger that workflow by defining another entry point `optimise = python3 optimisation.py`
 under `main`. Entry points can be selected at runtime by adding the `-e` flag to `run_project` e.g. `python run_project.py -e optimise`.
 
 
