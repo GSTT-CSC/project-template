@@ -9,7 +9,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends build-essential git rsync software-properties-common
 
 RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get install -y --no-install-recommends python3.10 python3-pip python3.10-venv && \
+    apt-get install -y --no-install-recommends python3.10 python3-pip python3-dev python3.10-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # Make sure we use the virtualenv:
