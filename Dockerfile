@@ -21,7 +21,7 @@ WORKDIR /APP
 COPY . .
 
 # install requirements
-RUN python -m pip install --upgrade pip && python -m pip install wheel %% \
+RUN python -m pip install --upgrade pip && python -m pip install wheel && \
     python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu114 && \
     python -m pip install --ignore-install ruamel-yaml -r requirements.txt
 
