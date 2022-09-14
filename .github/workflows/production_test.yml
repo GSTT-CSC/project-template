@@ -6,15 +6,16 @@ name: Production tests
 on:
   push:
     branches:
-      - "main"
-      - "release/*"
+      - 'main'
+      - 'master'
+      - 'release/*'
 
 env:
-  PROJECT_NAME: template
-  APPLICATION_DIR: project
-  TEST_DIR: tests
-  COV_GIST_BADGEID: createagistbadgeid
-  COV_GIST_NAME: createagistname
+  PROJECT_NAME: template  # the project name
+  APPLICATION_DIR: project  # the name of the main directory that contains the project code
+  TEST_DIR: tests  # the name of the directory that contains the tests
+  COV_GIST_BADGEID: COV_GIST_BADGEID  # this github repo secret should define a gist token see https://github.com/Schneegans/dynamic-badges-action
+  COV_GIST_NAME: COV_GIST_NAME  # this github repo secret should contain the filename of the gist see https://github.com/Schneegans/dynamic-badges-action
 
 jobs:
 

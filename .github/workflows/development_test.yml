@@ -7,9 +7,9 @@ on:
   pull_request:
 
 env:
-  PROJECT_NAME: template
-  APPLICATION_DIR: project
-  TEST_DIR: tests
+  PROJECT_NAME: template  # the project name
+  APPLICATION_DIR: project  # the name of the main directory that contains the project code
+  TEST_DIR: tests  # the name of the directory that contains the tests
 
 jobs:
 
