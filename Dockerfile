@@ -1,12 +1,10 @@
 # Dockerfile uses multi-stage buidl to reduce the size of final images.
 # uses python 3.9 by default
 
-FROM nvidia/cuda:11.4.0-devel-ubuntu20.04 AS build
+FROM nvidia/cuda:11.4.0-devel-ubuntu18.04 AS build
 
-RUN apt-get update && \
-    apt-get install -yq tzdata && \
-    ln -fs /usr/share/zoneinfo/America/New_York /etc/localtime && \
-    dpkg-reconfigure -f noninteractive tzdata && \
+RUN apt-get update &&  \
+    apt-get install -y --no-install-recommends build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv && \
     rm -rf /var/lib/apt/lists/*
 
 # Make sure we use the virtualenv:
@@ -22,7 +20,7 @@ RUN python -m pip install --upgrade pip && python -m pip install wheel
 RUN python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu114
 RUN python -m pip install --ignore-install ruamel-yaml -r requirements.txt
 
-FROM nvidia/cuda:11.4.0-runtime-ubuntu20.04
+FROM nvidia/cuda:11.4.0-runtime-ubuntu18.04
 RUN apt-get update &&  \
     apt-get install -y --no-install-recommends build-essential git rsync software-properties-common python3.9-dev python3-pip python3.9-venv && \
     rm -rf /var/lib/apt/lists/* \
