@@ -54,7 +54,7 @@ jobs:
         uses: schneegans/dynamic-badges-action@v1.0.0
         with:
           auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}
-          gistID: $GIST_BADGEID
+          gistID: COV_GIST_BADGEID
           filename: $COV_GIST_NAME
           label: Test coverage
           message: ${{ steps.coverageComment.outputs.coverage }}

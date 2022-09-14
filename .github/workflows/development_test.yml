@@ -10,8 +10,6 @@ env:
   PROJECT_NAME: template
   APPLICATION_DIR: project
   TEST_DIR: tests
-  COV_GIST_BADGEID: createagistbadgeid
-  COV_GIST_NAME: createagistname
 
 jobs:
 
