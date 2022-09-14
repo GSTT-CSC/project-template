@@ -58,12 +58,20 @@ will run the command `python3 train.py` when the main entry point is requested.
 You can specify any number of custom entry points. For example, if you had a script that performed hyperparameter optimisation you might want to trigger that workflow by defining another entry point `optimise = python3 optimisation.py`
 under `main`. Entry points can be selected at runtime by adding the `-e` flag to `run_project` e.g. `python run_project.py -e optimise`.
 
-
 ### 2. `project/Network.py`
 This file is used to define the pytorch `LightningModule` class.
 
 ### 3. `project/DataModule.py`
 This file is used to define the pytorch `LightningDataModule` class.
+
+### 4. Setup GitHub actions
+To run your tests using GithHub actions the `.github/workflows/development_test.yml` and `.github/workflows/production_test.yml` files should be modified.
+
+These workflows use environment variables, defined at the top of the workflow to make testing easier.
+
+The production tests also use a GitHub secret to authenticate the writing of a gist to store the test coverage badge `auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}`. GitHub secrets are hidden string variables stored at a repository level, these can be defined in the repository settings.
+
+More information about how the test coverage badge is defined can be found [here](https://github.com/Schneegans/dynamic-badges-action).
 
 ## Contact
 For bug reports and feature requests please raise a GitHub issue on this repository.
