@@ -59,7 +59,7 @@ main = python3 train.py
 ```
 will run the command `python3 train.py` when the main entry point is requested.
 
-You can specify any number of custom entry points. For example, if you had a script that performed hyperparamter optimisation you might want to trigger that workflow by defining another entry point `optimise = python3 optimisation.py`
+You can specify any number of custom entry points. For example, if you had a script that performed hyperparameter optimisation you might want to trigger that workflow by defining another entry point `optimise = python3 optimisation.py`
 under `main`. Entry points can be selected at runtime by adding the `-e` flag to `run_project` e.g. `python run_project.py -e optimise`.
 
 
