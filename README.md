@@ -50,7 +50,7 @@ There are 3 main components that need to be completed after cloning the template
 The config file contains all the information that is used for configuring up the project, experiment, and tracking server. 
 The config file path is passed as an argument to the `Experiment` class where the experiment and tracking are configured. 
 
-Note: The values present in the template config file are the minimum required, be careful not to remove any but adding new ones to help configure parts of your project is encourages (e.g. entry points).
+Note: The values present in the template config file are the minimum required, be careful not to remove any but adding new ones to help configure parts of your project is encouraged (e.g. entry points).
 
 #### `[entry_points]`
 The entry points defined here allow you to enter the project through different routes. It is necessary to define at least one entry_point called `main`, for example including the line:
