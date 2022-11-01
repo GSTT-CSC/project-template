@@ -5,7 +5,7 @@ import mlflow
 from torch.cuda import is_available as cuda_available
 
 
-def train(data_dir):
+def train(config):
 
     # initialise network and datamodule
     net = Network(data_dir=data_dir)
@@ -23,5 +23,12 @@ def train(data_dir):
 
 
 if __name__ == '__main__':
-    data_dir = '/DATA'
-    train(data_dir)
+
+    if len(sys.argv) > 0:
+        config_path = sys.argv[1]
+    else:
+        config_path = 'config/config.cfg'
+
+    config = configparser.ConfigParser()
+    config.read(config_path)
+    train(config)
