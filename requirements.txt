@@ -3,3 +3,4 @@ mlflow
 flake8
 pytest-cov
 csc-mlops
+xnat

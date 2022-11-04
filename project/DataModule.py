@@ -4,11 +4,15 @@ from monai.data import CacheDataset, Dataset
 from torch.utils.data import random_split, DataLoader
 from torch.cuda import is_available
 from monai.data import list_data_collate
+from mlops.data.tools.tools import xnat_build_dataset
+from xnat.mixin import ImageScanData, SubjectData
+from typing import Any, Callable, Dict, Hashable, List, Mapping, Optional, Sequence, Tuple, Union
 
 
 class DataModule(pytorch_lightning.LightningDataModule):
 
-    def __init__(self, data_dir: str = './', batch_size: int = 1, num_workers: int = 4, test_fraction: float = 0.1,
+    def __init__(self, data_dir: str = './', xnat_configuration: dict = None, batch_size: int = 1, num_workers: int = 4,
+                 test_fraction: float = 0.1,
                  train_val_ratio: float = 0.2):
         super().__init__()
         self.data_dir = data_dir
@@ -16,6 +20,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
         self.batch_size = batch_size
         self.train_val_ratio = train_val_ratio
         self.test_fraction = test_fraction
+        self.xnat_configuration = xnat_configuration
 
     def setup(self, stage: Optional[str] = None):
         """
@@ -23,7 +28,10 @@ class DataModule(pytorch_lightning.LightningDataModule):
         :param stage:
         :return:
         """
-        data_samples = {}  # Dataset containing all samples - see pytorch definition of Dataset
+        actions = [()]  # list of tuples defining action functions and their data keys
+
+        self.xnat_data_list = xnat_build_dataset(self.xnat_configuration, actions=actions)
+
         self.train_samples, self.valid_samples, self.test_samples = random_split(data_samples,
                                                                                  self.data_split(len(data_samples)))
 
@@ -35,29 +43,25 @@ class DataModule(pytorch_lightning.LightningDataModule):
         Define train dataloader
         :return:
         """
-        train_loader = DataLoader(self.train_samples, batch_size=self.batch_size, shuffle=True,
-                                  num_workers=self.num_workers, collate_fn=list_data_collate,
-                                  pin_memory=is_available())
-
-        return train_loader
+        return DataLoader(self.train_samples, batch_size=self.batch_size, shuffle=True,
+                          num_workers=self.num_workers, collate_fn=list_data_collate,
+                          pin_memory=is_available())
 
     def val_dataloader(self):
         """
         Define validation dataloader
         :return:
         """
-        val_loader = DataLoader(self.valid_samples, batch_size=self.batch_size, num_workers=self.num_workers,
-                                pin_memory=is_available())
-        return val_loader
+        return DataLoader(self.valid_samples, batch_size=self.batch_size, num_workers=self.num_workers,
+                          pin_memory=is_available())
 
     def test_dataloader(self):
         """
         Define test dataloader
         :return:
         """
-        test_loader = DataLoader(self.test_samples, batch_size=self.batch_size, num_workers=self.num_workers,
-                                 pin_memory=is_available())
-        return test_loader
+        return DataLoader(self.test_samples, batch_size=self.batch_size, num_workers=self.num_workers,
+                          pin_memory=is_available())
 
     def data_split(self, total_count):
         test_count = int(self.test_fraction * total_count)
