@@ -33,8 +33,18 @@ class DataModule(pytorch_lightning.LightningDataModule):
 
         self.xnat_data_list = xnat_build_dataset(self.xnat_configuration, actions=actions, test_batch=self.test_batch)
 
-        self.train_samples, self.valid_samples, self.test_samples = random_split(data_samples,
-                                                                                 self.data_split(len(data_samples)))
+        self.raw_data = Dataset(self.xnat_data_list)
+
+        # Split data
+        val_size = int(self.train_val_ratio * len(self.raw_data))
+        train_size = len(self.raw_data) - val_size
+        self.train_data, self.validation_data = random_split(self.raw_data, [train_size, val_size])
+
+        mlflow.log_params({'N_train': len(self.train_data),
+                           'N_validation': len(self.validation_data)})
+
+        self.val_dataset = CacheDataset(data=self.validation_data, transform=self.val_transforms, copy_cache=False, num_workers=self.num_workers)
+        self.train_dataset = CacheDataset(data=self.train_data, transform=self.train_transforms, copy_cache=False, num_workers=self.num_workers)
 
     def prepare_data(self, *args, **kwargs):
         pass
@@ -44,7 +54,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
         Define train dataloader
         :return:
         """
-        return DataLoader(self.train_samples, batch_size=self.batch_size, shuffle=True,
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
                           num_workers=self.num_workers, collate_fn=list_data_collate,
                           pin_memory=is_available())
 
@@ -53,21 +63,6 @@ class DataModule(pytorch_lightning.LightningDataModule):
         Define validation dataloader
         :return:
         """
-        return DataLoader(self.valid_samples, batch_size=self.batch_size, num_workers=self.num_workers,
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers,
                           pin_memory=is_available())
 
-    def test_dataloader(self):
-        """
-        Define test dataloader
-        :return:
-        """
-        return DataLoader(self.test_samples, batch_size=self.batch_size, num_workers=self.num_workers,
-                          pin_memory=is_available())
-
-    def data_split(self, total_count):
-        test_count = int(self.test_fraction * total_count)
-        train_count = int((1 - self.train_val_ratio) * (total_count - test_count))
-        valid_count = int(self.train_val_ratio * (total_count - test_count))
-        split = (train_count, valid_count, test_count)
-        print('Number of samples (Train, validation, test) = {0}'.format(split))
-        return split
