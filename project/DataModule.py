@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, Hashable, List, Mapping, Optional, Seque
 class DataModule(pytorch_lightning.LightningDataModule):
 
     def __init__(self, data_dir: str = './', xnat_configuration: dict = None, batch_size: int = 1, num_workers: int = 4,
-                 test_fraction: float = 0.1,
+                 test_fraction: float = 0.1, test_batch: int = 0,
                  train_val_ratio: float = 0.2):
         super().__init__()
         self.data_dir = data_dir
@@ -21,6 +21,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
         self.train_val_ratio = train_val_ratio
         self.test_fraction = test_fraction
         self.xnat_configuration = xnat_configuration
+        self.test_batch = test_batch
 
     def setup(self, stage: Optional[str] = None):
         """
@@ -30,7 +31,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
         """
         actions = [()]  # list of tuples defining action functions and their data keys
 
-        self.xnat_data_list = xnat_build_dataset(self.xnat_configuration, actions=actions)
+        self.xnat_data_list = xnat_build_dataset(self.xnat_configuration, actions=actions, test_batch=self.test_batch)
 
         self.train_samples, self.valid_samples, self.test_samples = random_split(data_samples,
                                                                                  self.data_split(len(data_samples)))
