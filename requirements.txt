@@ -1,5 +1,6 @@
-pytorch_lightning==1.5.10
+pytorch_lightning
 mlflow
 flake8
 pytest-cov
 csc-mlops
+xnat
