@@ -1,11 +1,12 @@
 ---
 name: CAPA
 about: File a corrective action or preventative action (CAPA) report
-title: '[CAPA]: '
-labels: ["CAPA", "triage"]
+title: "[CAPA]: "
+labels: ''
 assignees: ''
 
 ---
+
 *This template is used to file a corrective action or preventative action (CAPA) report as specified by [CSC-QMS: SOP-016](https://github.com/GSTT-CSC/CSC-QMS)*
 
 *Please complete all of the following fields*
