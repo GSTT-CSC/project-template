@@ -1,0 +1,30 @@
+# This data file contains details about your medical device.
+
+# The trade name of the device
+name: "DEVICE"
+
+# Shorthand Name for device, (max 5 characters)
+name_sh: "DEV"
+
+# The current release number for the device
+version: "v0.1.0"
+
+# What is the IEC62304 safety classification of the entire system?
+# "A" - No injury or damage to health is possible
+# "B" - Non-serious injury is possible
+# "C" - Death or serious injury is possible
+safety_class: B
+
+# The MHRA medical device classification for this applications
+# "I" -
+# "IIa" -
+# "IIb" -
+# "III" -
+mhra_class: "IIb"
+
+# link ot the website page
+csc_website_url:
+
+#the GitHub URL
+github_url:
+

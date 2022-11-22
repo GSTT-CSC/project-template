@@ -1,0 +1,32 @@
+requirements:
+  - id: r-1
+    title: First Example Requirement
+    type: Input/Output
+    description: A brief description of the requirement; should use the world "shall".
+    specifications: |
+  - id: r-2
+    title: Second Example Requirement
+    type: Functional
+    description: Requirements describe what the software needs to do, and not how.
+  - id: r-3-1
+    title: Third Example Requirement Nested Id First Item
+    type: Functional
+    description: Requirements should be verifiable (e.g., testable).
+  - id: r-3-2
+    title: Fourth Example Requirement Nested Id Second Item
+    type: Functional
+    description: Requirements can be written using markdown.
+
+specification:
+  - id: sr-1
+    title: some title
+    req_id: r-1
+    description: Adds some descirptino to the specification
+  - id: sr-2
+    title: some title
+    req_id: r-1
+    description: Adds some descirptino to the specification
+  - id: sr-3
+    title: some title
+    req_id: r-1
+    description: Adds some descirptino to the specification
