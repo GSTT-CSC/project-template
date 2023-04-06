@@ -119,3 +119,9 @@ dmypy.json
 pytest.xml
 pytest-coverage.txt
 mlruns/
+
+#data
+*.xlsx
+*.csv
+*.ipynb
+*.txt
