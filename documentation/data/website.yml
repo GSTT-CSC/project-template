@@ -1,0 +1,11 @@
+statement_of_purpose: 'Purpose'
+
+device_name: DEVICE
+
+logo: path/to/logo
+
+MLFlow_artefacts:
+  - image: path/to/performance_image1.png
+    description: “text description”
+
+Dataset_size: X
