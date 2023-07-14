@@ -1,5 +1,7 @@
 Model:
   MLFlow artefacts:
+  # will this path be in project or website repo or elsewhere?
+  # not sure how to handle handle these for website...
   - image: path/to/performance_image1.png
     description: “text description”
   - image: image2.png

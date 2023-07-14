@@ -5,6 +5,7 @@ dataset_version:
 preprocess_description:
 
 train_dataset:
+  summary: DATASET SUMMARY
 - group: total
   size:
   - grouping: gender
