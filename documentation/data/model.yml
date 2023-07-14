@@ -1,0 +1,10 @@
+Model:
+  MLFlow artefacts:
+  - image: path/to/performance_image1.png
+    description: “text description”
+  - image: image2.png
+    description: “text description”
+
+  model_version: “v2.0”
+  date:
+  pytorch_version:

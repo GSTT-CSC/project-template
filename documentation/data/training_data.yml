@@ -5,6 +5,36 @@ dataset_version:
 preprocess_description:
 
 train_dataset:
+- group: total
+  size:
+  - grouping: gender
+    Female:
+    Male:
+  - grouping: ethnicity
+    not_stated:
+    asian:
+    black:
+    latin_american:
+    mixed:
+    white:
+  - grouping: age
+    0-15:
+    16-20:
+    21-25:
+    26-30:
+    31-35:
+    36-40:
+    41-45:
+    46-50:
+    51-55:
+    56-60:
+    61-65:
+    66-70:
+    71-75:
+    76-80:
+    81-85:
+    86-90:
+    91_plus:
 
 test_dataset:
 
