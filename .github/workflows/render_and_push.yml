@@ -1,0 +1,42 @@
+# this is the version that works
+name: render_and_push
+
+on: workflow_dispatch
+#  push:
+#    branches:
+#      - main
+
+jobs:
+  update-and-copy-md:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Environment
+      run: |
+        python -m venv testenv
+        . testenv/bin/activate
+        pip install --upgrade pip
+        pip install rdm
+        make ./release/website_modelcard.md
+        mkdir md-to-send
+        mv ./release/website_modelcard.md ./md-to-send/website_modelcard.md
+    - name: Pushes test file
+      uses: SpinyOwl/publish-artifact-to-git@1.0.1
+      with:
+        # create a personal access token with read/write access to both repos, and save it to secrets. access tokens expire after 60 days.
+        github_pat: '${{ secrets.MODEL_CARD_DEMO }}'
+#       github_token: '${{ secrets.GITHUB_TOKEN }}'
+        repository: alex-andrassy/modelcard_demo
+        branch: main
+        source_folder: ./md-to-send
+#        target_folder: data
+        no_delete: true
+
+# works but get this Warning: The `set-output` command is deprecated and will be disabled soon...
+# Please upgrade to using Environment Files...
+# For more information see: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
+# link says command disable is postponed because of high use
+# IF THIS COMMAND IS DISABLED AND THE ACTION IS NOT UPDATED:
+# A fix could be to produce the .md file and images(?) the same way and upload as an artifact, then there are many actions which can be used to...
+# download the artifact from the project repo to the website repo. OR, send the data over, and produce the .md in the website repo.
