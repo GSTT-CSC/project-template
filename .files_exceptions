@@ -1,0 +1,4 @@
+documentation/
+.github/hooks/
+README.md
+.sensitive_exceptions

@@ -64,6 +64,44 @@ The production tests also use a GitHub secret to authenticate the writing of a g
 
 More information about how the test coverage badge is defined can be found [here](https://github.com/Schneegans/dynamic-badges-action).
 
+### 5. Setup Git Hooks
+
+This repository contains a pre-commit hook that helps prevent committing sensitive information to the repository by scanning your commits for certain patterns like names, addresses, phone numbers, patient IDs, etc.
+
+#### 5.1. Setting up the Pre-commit Hook
+The pre-commit hook script is located in the git_hooks directory. Copy the pre-commit script from this directory to the .git/hooks/ directory in your local repository.
+
+```bash
+cp .github/hooks/pre-commit .git/hooks/ 
+```
+
+Make the script executable:
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+The script will now automatically check the files you're about to commit for any sensitive information patterns.
+
+#### 5.2. Setting up exceptions
+Sometimes, there may be legitimate cases where these patterns are allowed. In these cases, you can add exceptions to the .sensitive_exceptions and .files_exceptions files.
+
+The .sensitive_exceptions file should contain any specific instances of the forbidden patterns that you want to allow. Each exception should be on its own line.
+The .files_exceptions file should contain any files/directories that you want to exclude from the checks. Each file should be on its own line.
+
+The Team Members names and the documentation folder are set as exceptions by default. 
+
+### 5.3. Resolving Pre-commit Hook Issues
+
+When the pre-commit hook identifies potential sensitive information in a commit, it will prevent the commit from being completed and output information about the offending files and patterns.
+
+How you view this output will depend on your method of committing:
+
+- **VSCode**: If you're using VSCode UI to commit your changes, you can view the pre-commit hook output by clicking on "Show command output" when the error is thrown. 
+
+- **Terminal**: If you're committing via terminal, the output will be displayed directly in the terminal.
+
+
 ## Contact
 For bug reports and feature requests please raise a GitHub issue on this repository.
 
