@@ -4,22 +4,25 @@ dataset_version: VERSION
 
 preprocess_description: DESCRIPTION
 
+train_dataset_summary: DATASET SUMMARY
+train_data_excl: Exclusion Criteria
+train_dataset_size: SIZE
+train_input: Images
+
 train_dataset:
 - total:
-    summary: DATASET SUMMARY
-    size: SIZE
     subgroups:
     - gender:
-        Female: 3
-        Male: 1
+        Female: 10
+        Male: 10
     - ethnicity:
-        not_stated:
-        asian:
-        black:
-        latin_american:
-        mixed:
-        white:
-    - age:
+        Not Stated:
+        Asian:
+        Black:
+        Latin American:
+        Mixed:
+        White:
+    - Age:
         0-15:
         16-20:
         21-25:
@@ -36,7 +39,7 @@ train_dataset:
         76-80:
         81-85:
         86-90:
-        91_plus:
+        91+:
 - positive:
     subgroups:
 - postive_female_mixed:

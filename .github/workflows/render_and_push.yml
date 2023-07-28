@@ -1,6 +1,7 @@
-# this is the version that works
+# make sure main_image_path in website.yml is correct
 name: render_and_push
 
+# left as manual for testing, to be changed to on push
 on: workflow_dispatch
 #  push:
 #    branches:
@@ -12,31 +13,49 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Environment
+    - name: render md and graphs
+      # set up environment, render website_modelcard.md with yml data in data directory, and plot demographics data
+      # NOTE to fix - currently fails if demo_graphs dir already exists in repo AND has files in
       run: |
         python -m venv testenv
         . testenv/bin/activate
         pip install --upgrade pip
         pip install rdm
+        pip install matplotlib
+        pip install pillow
+        cd ./documentation
         make ./release/website_modelcard.md
-        mkdir md-to-send
-        mv ./release/website_modelcard.md ./md-to-send/website_modelcard.md
-    - name: Pushes test file
+        mkdir ../md-to-send
+        mv ./release/website_modelcard.md ../md-to-send/${GITHUB_REPOSITORY#*/}_modelcard.md
+        mkdir demo_graphs
+        python plotyml.py
+    - name: Pushes md
       uses: SpinyOwl/publish-artifact-to-git@1.0.1
       with:
-        # create a personal access token with read/write access to both repos, and save it to secrets. access tokens expire after 60 days.
+        # need to create a personal access token with read/write access to website repo, and save it to secrets. access tokens expire after 60 days.
+        # a user based naming convention for secrets may be necessary, to ensure each user calls their own access token (if multiple access tokens saved to a repo's secrets)
         github_pat: '${{ secrets.MODEL_CARD_DEMO }}'
-#       github_token: '${{ secrets.GITHUB_TOKEN }}'
-        repository: alex-andrassy/modelcard_demo
-        branch: main
+        repository: GSTT-CSC/gstt-csc.github.io
+        # sending to branch for testing, to be changed to main/master
+        branch: 228_add_modelcard_layout
+        # source folder path needs to match the md-to-send directory created in render md and graphs step above
         source_folder: ./md-to-send
-#        target_folder: data
+        # set target folder in website repo for modelcard md file
+        target_folder: _projects
+        no_delete: true
+    - name: Pushes graphs
+      uses: SpinyOwl/publish-artifact-to-git@1.0.1
+      with:
+        github_pat: '${{ secrets.MODEL_CARD_DEMO }}'
+        repository: GSTT-CSC/gstt-csc.github.io
+        # sending to branch for testing, to be changed to main/master
+        branch: 228_add_modelcard_layout
+        # source folder path needs to match the demo_graphs directory created in render md and graphs step above
+        source_folder: ./documentation/demo_graphs
+        target_folder: assets/img/projects
         no_delete: true
 
 # works but get this Warning: The `set-output` command is deprecated and will be disabled soon...
 # Please upgrade to using Environment Files...
 # For more information see: https://github.blog/changelog/2022-10-11-github-actions-deprecating-save-state-and-set-output-commands/
 # link says command disable is postponed because of high use
-# IF THIS COMMAND IS DISABLED AND THE ACTION IS NOT UPDATED:
-# A fix could be to produce the .md file and images(?) the same way and upload as an artifact, then there are many actions which can be used to...
-# download the artifact from the project repo to the website repo. OR, send the data over, and produce the .md in the website repo.

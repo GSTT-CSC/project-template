@@ -1,12 +1,12 @@
-Model:
-  MLFlow artefacts:
-  # will this path be in project or website repo or elsewhere?
-  # not sure how to handle handle these for website...
-  - image: path/to/performance_image1.png
-    description: “text description”
-  - image: image2.png
-    description: “text description”
+model_architecture: "model"
 
-  model_version: “v2.0”
-  date:
-  pytorch_version:
+MLFlow artefacts:
+# will this path be in project or website repo or elsewhere?
+- image: path/to/performance_image1.png
+  description: "text description"
+- image: image2.png
+  description: "text description"
+
+model_version: "v2.0"
+date:
+pytorch_version:

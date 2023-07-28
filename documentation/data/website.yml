@@ -1,10 +1,13 @@
 project_title: PROJECT TITLE
 status: Developing
+
 # image path in website repo
 main_image_path: /assets/img/projects/IMAGE_TITLE.jpg
+
 # logo path in website repo
 logo: path/to/logo
 
 errors: ERRORS
 goals: GOALS
 success_criteria: CRITERIA
+

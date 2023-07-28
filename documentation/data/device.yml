@@ -10,7 +10,7 @@ statement_of_purpose: PURPOSE
 
 summary: SUMMARY
 
-modality: X-ray
+modality: MODALITY
 
 pathology: PATHOLOGY
 
@@ -34,7 +34,7 @@ safety_class: B
 # "III" -
 mhra_class: "IIb"
 
-# link ot the website page
+# link to the website page
 csc_website_url:
 
 #the GitHub URL
