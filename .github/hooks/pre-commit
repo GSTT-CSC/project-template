@@ -1,18 +1,16 @@
 #!/bin/sh
 
-# Forbidden patterns
-FORBIDDEN_NAME="^([a-zA-Z]{2,}\s[a-zA-Z]{1,}'?-?[a-zA-Z]{2,}\s?([a-zA-Z]{1,})?)"
-FORBIDDEN_ADDRESS="[A-Za-z][A-Za-z][0-9]+\s[0-9]+[A-Za-z][A-Za-z]"
-FORBIDDEN_PATIENT_ID="[0-9]{7}[a-zA-Z]{1}"
+# REGEX PATTERNS 
+FORBIDDEN_ADDRESS="^[A-PR-UWYZ]([0-9]{1,2}|([A-HK-Y][0-9]([0-9ABEHMNPRV-Y])?)|[0-9][A-HJKPS-UW])?[[:space:]]?[0-9][ABD-HJLNP-UW-Z]{2}$"
+FORBIDDEN_PATIENT_ID="^[a-zA-Z][0-9]{6}$|^[0-9]{7}[a-zA-Z]$"
 FORBIDDEN_PHONE="(\+44|07)[0-9]{9}"
 FORBIDDEN_ACCESSION_NUMBER="sp-[0-9]{2}-[0-9]{7}"
 FORBIDDEN_DOB="[0-1][0-9]/[0-3][0-9]/[1-2][0-9]{3}"
 FORBIDDEN_DATE_TIME="[0-1][0-9]/[0-3][0-9]/[1-2][0-9]{3}\s[0-2][0-9]:[0-5][0-9]:[0-5][0-9]"
 FORBIDDEN_NHS="[0-9]{10}"
 
-git_verification_patterns=($FORBIDDEN_NAME $FORBIDDEN_ADDRESS $FORBIDDEN_PATIENT_ID $FORBIDDEN_PHONE $FORBIDDEN_ACCESSION_NUMBER   $FORBIDDEN_DATE_TIME $FORBIDDEN_DOB $FORBIDDEN_NHS)
-git_verification_patterns_desc=("Name" "Address" "Patient ID" "Phone number" "Accession Number"   "Date and Time" "Date of Birth" "NHS Number")
-
+git_verification_patterns=( $FORBIDDEN_ADDRESS $FORBIDDEN_PATIENT_ID $FORBIDDEN_PHONE $FORBIDDEN_ACCESSION_NUMBER $FORBIDDEN_DATE_TIME $FORBIDDEN_DOB $FORBIDDEN_NHS)
+git_verification_patterns_desc=("Address" "Patient ID" "Phone number" "Accession Number" "Date and Time" "Date of Birth" "NHS Number")
 
 # Get modified files
 FILES_MODIFIED=$(git diff --cached --name-only)
@@ -20,34 +18,16 @@ FILES_MODIFIED=$(git diff --cached --name-only)
 NUM_FILES_CHECKED=0
 NUM_FILES_OFFENCES=0
 
-# Exceptions (files and words/numbers that will be bypassed)
-exceptions=()
-if [ -f .sensitive_exceptions ]; then
-  while IFS= read -r line; do
-    exceptions+=("$line")
-  done < .sensitive_exceptions
-fi
-
-excluded_files=()
-if [ -f .files_exceptions ]; then
-  while IFS= read -r line; do
-    excluded_files+=("$line")
-  done < .files_exceptions
-fi
+# Exceptions
+exception_file=".sensitive_exceptions"
+exclusion_file=".files_exceptions"
 
 echo "-- RUNNING SENSITIVE DATA CHECKS ----------------------------------------"
 
 for F in $FILES_MODIFIED
 do
-  # If the file or its parent directory is in the exclusion list, skip it
-  should_skip=0
-  for excluded in "${excluded_files[@]}"; do
-    if [[ $F == $excluded* ]]; then
-      should_skip=1
-      break
-    fi
-  done
-  if [[ $should_skip -eq 1 ]]; then
+  F_basename=$(basename $F)
+  if grep -Fiq -- "$F_basename" $exclusion_file; then
     continue
   fi
 
@@ -59,7 +39,8 @@ do
       LINE_NUMBER=${PARTS[0]}
       CONTENT=${PARTS[1]}
 
-      if printf '%s\n' "${exceptions[@]}" | grep -Fiq "$CONTENT"; then
+      # Skip exceptions
+      if echo "$CONTENT" | grep -Fiq -f $exception_file; then
         continue
       fi
 
@@ -67,7 +48,6 @@ do
       echo "   DESC: ${git_verification_patterns_desc[$i]}"
       echo "   MATCH: $MATCH"      
       echo "  "
-
 
       NUM_FILES_OFFENCES=$((NUM_FILES_OFFENCES+1))
     done
@@ -93,4 +73,3 @@ if [ $NUM_FILES_OFFENCES -gt 0 ]; then
 else
   exit 0
 fi
-

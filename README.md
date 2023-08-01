@@ -84,12 +84,13 @@ chmod +x .git/hooks/pre-commit
 The script will now automatically check the files you're about to commit for any sensitive information patterns.
 
 #### 5.2. Setting up exceptions
-Sometimes, there may be legitimate cases where these patterns are allowed. In these cases, you can add exceptions to the .sensitive_exceptions and .files_exceptions files.
+Sometimes, there may be legitimate cases where these patterns are allowed. In these cases, you can add exceptions to the .sensitive_exceptions and .files_exceptions files. Populating these files is not mandatory for git hooks to work but should be kept in the root of the project directory.
 
-The .sensitive_exceptions file should contain any specific instances of the forbidden patterns that you want to allow. Each exception should be on its own line.
+The .sensitive_exceptions file should contain any specific instances of the forbidden patterns that you want to allow. Each exception should be on its own line. You can for instance add specific addresses or dates you wish to push to remote.
+
 The .files_exceptions file should contain any files/directories that you want to exclude from the checks. Each file should be on its own line.
 
-The Team Members names and the documentation folder are set as exceptions by default. 
+These files are added to .gitignore as they are not advised to be committed. 
 
 ### 5.3. Resolving Pre-commit Hook Issues
 
