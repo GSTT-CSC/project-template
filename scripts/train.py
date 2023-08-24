@@ -4,12 +4,12 @@ import sys
 import configparser
 from torch.cuda import is_available as cuda_available
 from pytorch_lightning.loggers import MLFlowLogger
-
+import logging
 from project.DataModule import DataModule
 from project.Network import Network
 
 
-def train(config):
+def train(config, epochs=1):
     # config
     num_workers = 4
     gpus = 4
@@ -39,7 +39,7 @@ def train(config):
         )
         trainer.fit(net, dm)
 
-    logger.info('Training complete')
+    logging.info('Training complete')
 
 if __name__ == '__main__':
 
@@ -50,4 +50,6 @@ if __name__ == '__main__':
 
     config = configparser.ConfigParser()
     config.read(config_path)
+    data_dir = config['data']['DATA_PATH']
     train(config)
+
