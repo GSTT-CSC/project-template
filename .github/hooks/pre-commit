@@ -1,0 +1,75 @@
+#!/bin/sh
+
+# REGEX PATTERNS 
+FORBIDDEN_ADDRESS="^[A-PR-UWYZ]([0-9]{1,2}|([A-HK-Y][0-9]([0-9ABEHMNPRV-Y])?)|[0-9][A-HJKPS-UW])?[[:space:]]?[0-9][ABD-HJLNP-UW-Z]{2}$"
+FORBIDDEN_PATIENT_ID="^[a-zA-Z][0-9]{6}$|^[0-9]{7}[a-zA-Z]$"
+FORBIDDEN_PHONE="(\+44|07)[0-9]{9}"
+FORBIDDEN_ACCESSION_NUMBER="sp-[0-9]{2}-[0-9]{7}"
+FORBIDDEN_DOB="[0-1][0-9]/[0-3][0-9]/[1-2][0-9]{3}"
+FORBIDDEN_DATE_TIME="[0-1][0-9]/[0-3][0-9]/[1-2][0-9]{3}\s[0-2][0-9]:[0-5][0-9]:[0-5][0-9]"
+FORBIDDEN_NHS="[0-9]{10}"
+
+git_verification_patterns=( $FORBIDDEN_ADDRESS $FORBIDDEN_PATIENT_ID $FORBIDDEN_PHONE $FORBIDDEN_ACCESSION_NUMBER $FORBIDDEN_DATE_TIME $FORBIDDEN_DOB $FORBIDDEN_NHS)
+git_verification_patterns_desc=("Address" "Patient ID" "Phone number" "Accession Number" "Date and Time" "Date of Birth" "NHS Number")
+
+# Get modified files
+FILES_MODIFIED=$(git diff --cached --name-only)
+
+NUM_FILES_CHECKED=0
+NUM_FILES_OFFENCES=0
+
+# Exceptions
+exception_file=".sensitive_exceptions"
+exclusion_file=".files_exceptions"
+
+echo "-- RUNNING SENSITIVE DATA CHECKS ----------------------------------------"
+
+for F in $FILES_MODIFIED
+do
+  F_basename=$(basename $F)
+  if grep -Fiq -- "$F_basename" $exclusion_file; then
+    continue
+  fi
+
+  for i in "${!git_verification_patterns[@]}"; do
+    MATCHES=$(egrep -i --line-number "${git_verification_patterns[$i]}" "$F" || true)
+
+    for MATCH in $MATCHES; do
+      IFS=':' read -ra PARTS <<< "$MATCH"
+      LINE_NUMBER=${PARTS[0]}
+      CONTENT=${PARTS[1]}
+
+      # Skip exceptions
+      if echo "$CONTENT" | grep -Fiq -f $exception_file; then
+        continue
+      fi
+
+      echo "FILE: $F"
+      echo "   DESC: ${git_verification_patterns_desc[$i]}"
+      echo "   MATCH: $MATCH"      
+      echo "  "
+
+      NUM_FILES_OFFENCES=$((NUM_FILES_OFFENCES+1))
+    done
+  done
+
+  NUM_FILES_CHECKED=$((NUM_FILES_CHECKED+1))
+done
+
+echo "-- SUMMARY --------------------------------------------------------------"
+echo ""
+echo "   Files Checked: $NUM_FILES_CHECKED"
+echo "   Num File Offences: $NUM_FILES_OFFENCES"
+if [ $NUM_FILES_OFFENCES -gt 0 ]; then
+  echo "   Status: FAIL"  
+  echo "   "
+else
+  echo "   Status: OK"
+  echo "   "
+fi
+
+if [ $NUM_FILES_OFFENCES -gt 0 ]; then
+  exit 1
+else
+  exit 0
+fi
