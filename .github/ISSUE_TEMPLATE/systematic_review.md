@@ -13,6 +13,11 @@ assignees: ''
 |------|------|
 |      |      |
 
+### Project Milestone
+> At which milestone is this review taking place?
+
+Requirements /  Proof of Concept / Deployment / Before Prospective Study / Clinical release
+
 
 ### Requirements Review
 
