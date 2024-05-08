@@ -54,6 +54,7 @@ def train(config):
         xnat_configuration = xnat_configuration,
         num_workers = num_workers,
         batch_size = int(config['params']['batch_size']),
+        visualise_training_data = config['params']['visualise_training_data'],
         )
 
     dm.prepare_data()
