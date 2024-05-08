@@ -7,3 +7,4 @@ ray
 timm
 pytest
 pytest-cov
+flake8
