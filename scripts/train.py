@@ -68,11 +68,15 @@ def train(config):
     # Set up network
     net = Network(
         # Include params here from config such as dropout, learning_rate as shown
+        model_name = config['params']['model_name'],
+        pretrained = config['params']['pretrained'],
         n_classes = n_classes,
+        dropout = float(config['params']['dropout']),
+        weighted_loss = config['params']['weighted_loss'],
         train_class_weights = train_class_weights,
         validation_class_weights = validation_class_weights,
-        dropout = float(config['params']['dropout']),
         learning_rate = float(config['params']['learning_rate']),
+        batch_size = int(config['params']['batch_size'])
     )
 
     # Callbacks
@@ -104,11 +108,15 @@ def train(config):
     if save_best_model:
         net_trained = Network.load_from_checkpoint(
             checkpoint_callback.best_model_path,
+            model_name = config['params']['model_name'],
+            pretrained = config['params']['pretrained'],
             n_classes = n_classes,
+            dropout = float(config['params']['dropout']),
+            weighted_loss = config['params']['weighted_loss'],
             train_class_weights = train_class_weights,
             validation_class_weights = validation_class_weights,
-            dropout = float(config['params']['dropout']),
             learning_rate = float(config['params']['learning_rate']),
+            batch_size = int(config['params']['batch_size'])
             )
         trainer.test(
             net_trained,
