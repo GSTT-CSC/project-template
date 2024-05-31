@@ -1,5 +1,5 @@
-csc-mlops==0.9.18
-torch==2.2.1
+csc-mlops
+torch
 torchmetrics
 torchvision
 pytorch_lightning
