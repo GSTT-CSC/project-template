@@ -1,25 +1,16 @@
-FROM pytorch/pytorch:latest
-
-ENV DEBIAN_FRONTEND=noninteractive
-ENV PYTHONUNBUFFERED=1
+FROM python:3.10
 
 WORKDIR /project
 
-# Make sure we use the virtualenv:
-ENV PATH="/opt/venv/bin:$PATH"
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential git rsync software-properties-common && \
-    add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get install -y --no-install-recommends python3.9 python3-pip python3-dev python3.9-venv && \
-    rm -rf /var/lib/apt/lists/* && \
-    python3.9 -m venv /opt/venv
+    apt-get install -y --no-install-recommends build-essential git rsync software-properties-common ffmpeg libsm6 libxext6 && \
+    rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-
-# install requirements
-RUN python -m pip install --upgrade pip && \
-    python -m pip install --no-cache-dir wheel && \
-    python -m pip install --no-cache-dir -r requirements.txt
+ENV PYTHONPATH="/mlflow/projects/code/:$PYTHONPATH"
 
 COPY . .
+
+RUN python -m pip install --upgrade pip && \
+    python -m pip install --no-cache-dir -r requirements.txt
