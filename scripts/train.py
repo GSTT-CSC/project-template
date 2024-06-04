@@ -16,11 +16,12 @@ from project.DataModule import DataModule
 from project.Network import Network
 from project.DataModule import label_dict
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "4"
-
 logger = logging.getLogger(__name__)
 
 def train(config):
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = config["system"]["cuda_visible_devices"]
+    
     # Set up mflow experiment
     setup_mlflow(
         tracking_uri=mlflow.get_tracking_uri(),
