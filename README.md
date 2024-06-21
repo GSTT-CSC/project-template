@@ -49,41 +49,41 @@ The config file contains all the information that is used for configuring the pr
 
 The config file path is also passed as an argument to the MLOps `Experiment` class where the experiment and tracking are configured.
 
-As there will be differences between local development and running on DGX (for example XNAT configurations), it is highly encouraged to make use of local_config when devlopiong locally.
+As there will be differences between local development and running on DGX (for example XNAT configurations), it is highly encouraged to make use of `local_config` when devlopiong locally.
 
-Note: The values present in the template config files are examples, you can remove any except those in [server] and [project] which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
+Note: The values present in the template config files are examples, you can remove any except those in `[server]` and `[project]` which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
 
 ### 2. `project/Network.py`
-This file is used to define the pytorch `LightningModule` class.
+This file is used to define the PyTorch `LightningModule` class.
 
 This is where you set the Network architecture and flow that you will use for training, validation, and testing. 
 
 Here you can set up which metrics are calculated and at which stage in the flow these occur, along with the model and optimiser.
 
-This example has numerous metrics and steps that are not necessary, feel free to delete or add as relevant to your project.
+The example has numerous metrics and steps that are not always necessary, feel free to delete or add as relevant to your project.
 
 ### 3. `project/DataModule.py`
-This file is used to define the pytorch `LightningDataModule` class.
+This file is used to define the PyTorch `LightningDataModule` class.
 
 This is where you define the data that is used for training, validation, and testing.
 
-This example involves retrieving data from XNAT which may not be necessary for your project, and additionally has data validation steps that might not be relevant.
+The example involves retrieving data from XNAT (more on this below) which may not be necessary for your project. There are additional data validation steps that might not be relevant, feel free to delete or add as relevant to your project.
 
 
 ### 4. `scripts/train.py`
 This file is used to define the training run.
 
-This is where the datamodule and network are pulled together.
+This is where the `Datamodule` and `Network` are pulled together.
 
-This example also uses callbacks to retrieve the best model parameters.
+The example includes callbacks to retrieve the best model parameters, feel free to delete or add as relevant to your project.
 
 ### 5. `Dockerfile`
 This dockerfile sets up the Docker image that the MLOps run will utilise.
 
-In this example this is just a simple environment running python version 3.10.
+In the example this is just a simple environment running python version 3.10.
 You will most likely need to adapt this for your project.
 
-Examples of projects utilising these components:
+#### Examples of projects utilising these components:
 
 https://github.com/GSTT-CSC/CARNAX-Neonatal-Abdominal-X-Ray
 
@@ -96,7 +96,7 @@ For further information on MLOps please refer to the MLOps tutorial repo:
 https://github.com/GSTT-CSC/MLOps-tutorial
 
 
-### Additional steps that are strongly recommended:
+### Additional steps that are strongly recommended for project setup:
 
 ### 1. Set up GitHub Actions
 To run your tests using GitHub actions the `.github/workflows/development_test.yml` and `.github/workflows/production_test.yml` files should be modified.
@@ -146,12 +146,10 @@ How you view this output will depend on your method of committing:
 - **Terminal**: If you're committing via terminal, the output will be displayed directly in the terminal.
 
 
-
-
 ## Utility functions that may be useful
 
 ### XNAT data handler
-Accessing data stored in an XNAT archive is performed through two steps - first the XNAT database is queried for project subjects using the DataBuilderXNAT class. This list of results is then loaded using the pytorch style data loading transform called LoadImageXNATd.
+Accessing data stored in an XNAT archive is performed through two steps - first the XNAT database is queried for project subjects using the DataBuilderXNAT class. This list of results is then loaded using the PyTorch style data loading transform called LoadImageXNATd.
 
 ![](assets/xnat-image-import.png)
 
