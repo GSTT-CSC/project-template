@@ -44,7 +44,7 @@ The `project` directory should be renamed to make it clear that it contains your
 
 ### There are 5 main components that need to be completed after cloning the template:
 
-#### 1. `config/config.cfg` `config/local_config.cfg`
+### 1. `config/config.cfg` and `config/local_config.cfg`
 The config file contains all the information that is used for configuring the project, experiment, and tracking server. This includes training parameters and XNAT configurations.
 
 The config file path is also passed as an argument to the MLOps `Experiment` class where the experiment and tracking are configured.
@@ -53,7 +53,7 @@ As there will be differences between local development and running on DGX (for e
 
 Note: The values present in the template config files are examples, you can remove any except those in [server] and [project] which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
 
-#### 2. `project/Network.py`
+### 2. `project/Network.py`
 This file is used to define the pytorch `LightningModule` class.
 
 This is where you set the Network architecture and flow that you will use for training, validation, and testing. 
@@ -62,7 +62,7 @@ Here you can set up which metrics are calculated and at which stage in the flow 
 
 This example has numerous metrics and steps that are not necessary, feel free to delete or add as relevant to your project.
 
-#### 3. `project/DataModule.py`
+### 3. `project/DataModule.py`
 This file is used to define the pytorch `LightningDataModule` class.
 
 This is where you define the data that is used for training, validation, and testing.
@@ -70,14 +70,14 @@ This is where you define the data that is used for training, validation, and tes
 This example involves retrieving data from XNAT which may not be necessary for your project, and additionally has data validation steps that might not be relevant.
 
 
-#### 4. `scripts/train.py`
+### 4. `scripts/train.py`
 This file is used to define the training run.
 
 This is where the datamodule and network are pulled together.
 
 This example also uses callbacks to retrieve the best model parameters.
 
-#### 5. `Dockerfile`
+### 5. `Dockerfile`
 This dockerfile sets up the Docker image that the MLOps run will utilise.
 
 In this example this is just a simple environment running python version 3.10.
@@ -94,6 +94,59 @@ https://github.com/GSTT-CSC/dental-classifier
 For further information on MLOps please refer to the MLOps tutorial repo:
 
 https://github.com/GSTT-CSC/MLOps-tutorial
+
+
+### Additional steps that are strongly recommended:
+
+### 1. Set up GitHub Actions
+To run your tests using GitHub actions the `.github/workflows/development_test.yml` and `.github/workflows/production_test.yml` files should be modified.
+
+These workflows use environment variables, defined at the top of the workflow to make testing easier.
+
+The production tests also use a GitHub secret to authenticate the writing of a gist to store the test coverage badge `auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}`. GitHub secrets are hidden string variables stored at a repository level, these can be defined in the repository settings.
+
+More information about how the test coverage badge is defined can be found [here](https://github.com/Schneegans/dynamic-badges-action).
+
+### 2. Set up Git Hooks
+
+This repository contains a pre-commit hook that helps prevent committing sensitive information to the repository by scanning your commits for certain patterns like names, addresses, phone numbers, patient IDs, etc.
+
+#### 2.1. Set up the Pre-commit Hook
+The pre-commit hook script is located in the git_hooks directory. Copy the pre-commit script from this directory to the .git/hooks/ directory in your local repository.
+
+```bash
+cp .github/hooks/pre-commit .git/hooks/ 
+```
+
+Make the script executable:
+
+```bash
+chmod +x .git/hooks/pre-commit
+```
+
+The script will now automatically check the files you're about to commit for any sensitive information patterns.
+
+#### 2.2. Set up Pre-commit Hook Exceptions
+Sometimes, there may be legitimate cases where these patterns are allowed. In these cases, you can add exceptions to the .sensitive_exceptions and .files_exceptions files. Populating these files is not mandatory for git hooks to work but should be kept in the root of the project directory.
+
+The .sensitive_exceptions file should contain any specific instances of the forbidden patterns that you want to allow. Each exception should be on its own line. You can for instance add specific addresses or dates you wish to push to remote.
+
+The .files_exceptions file should contain any files/directories that you want to exclude from the checks. Each file should be on its own line.
+
+These files are added to .gitignore as they are not advised to be committed.
+
+### 2.3. Resolving Pre-commit Hook Issues
+
+When the pre-commit hook identifies potential sensitive information in a commit, it will prevent the commit from being completed and output information about the offending files and patterns.
+
+How you view this output will depend on your method of committing:
+
+- **VSCode**: If you're using VSCode UI to commit your changes, you can view the pre-commit hook output by clicking on "Show command output" when the error is thrown. 
+
+- **Terminal**: If you're committing via terminal, the output will be displayed directly in the terminal.
+
+
+
 
 ## Utility functions that may be useful
 
@@ -170,59 +223,6 @@ data_loader = DataLoader(dataset, batch_size=1, shuffle=True, num_workers=0, col
 
 If further transforms are required they can be added to the `Compose` transform list as usual.
 
-
-
-
-There are also additional steps that are strongly recommended to be set up for your project:
-
-### 1. Set up GitHub Actions
-To run your tests using GitHub actions the `.github/workflows/development_test.yml` and `.github/workflows/production_test.yml` files should be modified.
-
-These workflows use environment variables, defined at the top of the workflow to make testing easier.
-
-The production tests also use a GitHub secret to authenticate the writing of a gist to store the test coverage badge `auth: ${{ secrets.PYTEST_COVERAGE_COMMENT }}`. GitHub secrets are hidden string variables stored at a repository level, these can be defined in the repository settings.
-
-More information about how the test coverage badge is defined can be found [here](https://github.com/Schneegans/dynamic-badges-action).
-
-### 2. Set up Git Hooks
-
-This repository contains a pre-commit hook that helps prevent committing sensitive information to the repository by scanning your commits for certain patterns like names, addresses, phone numbers, patient IDs, etc.
-
-#### 2.1. Set up the Pre-commit Hook
-The pre-commit hook script is located in the git_hooks directory. Copy the pre-commit script from this directory to the .git/hooks/ directory in your local repository.
-
-```bash
-cp .github/hooks/pre-commit .git/hooks/ 
-```
-
-Make the script executable:
-
-```bash
-chmod +x .git/hooks/pre-commit
-```
-
-The script will now automatically check the files you're about to commit for any sensitive information patterns.
-
-
-### 2.2. Resolving Pre-commit Hook Issues
-
-When the pre-commit hook identifies potential sensitive information in a commit, it will prevent the commit from being completed and output information about the offending files and patterns.
-
-How you view this output will depend on your method of committing:
-
-- **VSCode**: If you're using VSCode UI to commit your changes, you can view the pre-commit hook output by clicking on "Show command output" when the error is thrown. 
-
-- **Terminal**: If you're committing via terminal, the output will be displayed directly in the terminal.
-
-
-#### 2.3. Set up Exceptions
-Sometimes, there may be legitimate cases where these patterns are allowed. In these cases, you can add exceptions to the .sensitive_exceptions and .files_exceptions files. Populating these files is not mandatory for git hooks to work but should be kept in the root of the project directory.
-
-The .sensitive_exceptions file should contain any specific instances of the forbidden patterns that you want to allow. Each exception should be on its own line. You can for instance add specific addresses or dates you wish to push to remote.
-
-The .files_exceptions file should contain any files/directories that you want to exclude from the checks. Each file should be on its own line.
-
-These files are added to .gitignore as they are not advised to be committed. 
 
 ## Contact
 For bug reports and feature requests please raise a GitHub issue on this repository.
