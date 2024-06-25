@@ -6,6 +6,18 @@ name: "DEVICE"
 # Shorthand Name for device, (max 5 characters)
 name_sh: "DEV"
 
+statement_of_purpose: PURPOSE
+
+summary: SUMMARY
+
+modality: MODALITY
+
+pathology: PATHOLOGY
+
+rationale: RATIONALE
+
+patient_pathway: PATHWAY
+
 # The current release number for the device
 version: "v0.1.0"
 
@@ -22,9 +34,25 @@ safety_class: B
 # "III" -
 mhra_class: "IIb"
 
-# link ot the website page
+# link to the website page
 csc_website_url:
 
 #the GitHub URL
 github_url:
+
+#path to logo
+logo:
+
+# Name of or department that approved the project
+Project_approver:
+
+#
+Approval_date:
+
+#is project service development (bool)
+Service_Dev:
+
+#expected completion date
+exp_comp_date:
+
 
