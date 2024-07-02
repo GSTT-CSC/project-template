@@ -1,7 +1,7 @@
 import pytest
 import xnat
 from transforms.LoadImageXNATd import LoadImageXNATd
-from transforms.tools import xnat_build_dataset
+from utils.tools import xnat_build_dataset
 from monai.transforms import Compose, ToTensord
 from torch.utils.data import DataLoader
 from monai.data import CacheDataset

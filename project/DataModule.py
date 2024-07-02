@@ -12,7 +12,7 @@ from torch.cuda import is_available
 from torchvision.utils import make_grid
 from sklearn.model_selection import train_test_split
 
-from transforms.tools import DataBuilderXNAT
+from utils.tools import DataBuilderXNAT
 from xnat.mixin import ImageScanData, SubjectData
 import matplotlib.pyplot as plt
 

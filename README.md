@@ -157,7 +157,7 @@ Accessing data stored in an XNAT archive is performed through two steps - first 
 #### 1. Create list of data samples
 A list of subjects is extracted from the XNAT archive for the specified project. This is done automatically by the helper function `xnat_build_dataset`. 
 ```python
-from transforms.tools import xnat_build_dataset
+from utils.tools import xnat_build_dataset
 
 PROJECT_ID = 'my_project'
 xnat_configuration = {'server': XNAT_LOCATION,
