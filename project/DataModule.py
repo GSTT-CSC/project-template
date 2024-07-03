@@ -12,7 +12,7 @@ from torch.cuda import is_available
 from torchvision.utils import make_grid
 from sklearn.model_selection import train_test_split
 
-from mlops.data.tools.tools import DataBuilderXNAT
+from utils.tools import DataBuilderXNAT
 from xnat.mixin import ImageScanData, SubjectData
 import matplotlib.pyplot as plt
 
@@ -25,14 +25,20 @@ from project.transforms import (
 
 # Update this with your labels
 label_dict = {
-    'Normal': 0,
-    'Positive': 1,
+    "Normal": 0,
+    "Positive": 1,
 }
+
 
 class DataModule(pytorch_lightning.LightningDataModule):
 
-    def __init__(self, xnat_configuration: dict = None, batch_size: int = 1, num_workers: int = 4,
-                visualise_training_data = True,):
+    def __init__(
+        self,
+        xnat_configuration: dict = None,
+        batch_size: int = 1,
+        num_workers: int = 4,
+        visualise_training_data=True,
+    ):
         super().__init__()
         self.num_workers = num_workers
         self.batch_size = batch_size
@@ -47,7 +53,9 @@ class DataModule(pytorch_lightning.LightningDataModule):
         )
 
         self.val_test_transforms = Compose(
-            load_xnat(self.xnat_configuration, self.image_series_option) + normalisation() + output_transforms()
+            load_xnat(self.xnat_configuration, self.image_series_option)
+            + normalisation()
+            + output_transforms()
         )
 
     def get_data(self) -> None:
@@ -59,13 +67,13 @@ class DataModule(pytorch_lightning.LightningDataModule):
             (self.fetch_label, "label"),
         ]
 
-        data_builder = DataBuilderXNAT(self.xnat_configuration,
-                                       actions=actions,
-                                       num_workers=self.num_workers)
+        data_builder = DataBuilderXNAT(
+            self.xnat_configuration, actions=actions, num_workers=self.num_workers
+        )
 
         data_builder.fetch_data()
         self.raw_data = data_builder.dataset
-    
+
     def validate_data(self) -> None:
         """
         Remove samples that do not have both an image and a label
@@ -118,14 +126,18 @@ class DataModule(pytorch_lightning.LightningDataModule):
         ]
 
     def prepare_data(self, *args, **kwargs):
-        
+
         self.get_data()
         logging.info("Validating data")
         self.validate_data()
 
         # Creates 50-25-25 split for train, val, test sets (update as you wish)
-        self.train_data, val_test = train_test_split(self.raw_data, test_size=0.5, random_state=42)
-        self.val_data, self.test_data = train_test_split(val_test, test_size=0.5, random_state=42)
+        self.train_data, val_test = train_test_split(
+            self.raw_data, test_size=0.5, random_state=42
+        )
+        self.val_data, self.test_data = train_test_split(
+            val_test, test_size=0.5, random_state=42
+        )
 
         mlflow.log_text(
             str([sample["subject_id"] for sample in self.test_data]),
@@ -141,13 +153,19 @@ class DataModule(pytorch_lightning.LightningDataModule):
         }
 
         mlflow.log_dict(self.data_manifest, "data_manifest.json")
-        
+
         if self.visualise_training_data:
             self.visualise_data(self.train_data, self.train_transforms, n_samples=24)
-        
-        self.train_dataset = Dataset(data=self.train_data, transform=self.train_transforms)
-        self.val_dataset = Dataset(data=self.val_data, transform=self.val_test_transforms)
-        self.test_dataset = Dataset(data=self.test_data, transform=self.val_test_transforms)
+
+        self.train_dataset = Dataset(
+            data=self.train_data, transform=self.train_transforms
+        )
+        self.val_dataset = Dataset(
+            data=self.val_data, transform=self.val_test_transforms
+        )
+        self.test_dataset = Dataset(
+            data=self.test_data, transform=self.val_test_transforms
+        )
 
     def visualise_data(self, data, transforms: Compose, n_samples) -> None:
         """Visualise a subset of random images from training dataloader after transforms
@@ -175,7 +193,6 @@ class DataModule(pytorch_lightning.LightningDataModule):
         mlflow.log_figure(plt.gcf(), "sample_images.png")
         mlflow.log_text(", ".join(inputs["subject_id"]), "sample_images_labels.txt")
 
-
     def train_dataloader(self):
         """
         Define train dataloader
@@ -183,14 +200,19 @@ class DataModule(pytorch_lightning.LightningDataModule):
         """
         if not self.train_dataset:
             self.train_dataset = CacheDataset(
-                                    data = self.train_data,
-                                    transform = self.train_transforms,
-                                    num_workers = self.num_workers,
+                data=self.train_data,
+                transform=self.train_transforms,
+                num_workers=self.num_workers,
             )
 
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True,
-                          num_workers=self.num_workers, collate_fn=list_data_collate,
-                          pin_memory=is_available())
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            collate_fn=list_data_collate,
+            pin_memory=is_available(),
+        )
 
     def val_dataloader(self):
         """
@@ -199,15 +221,19 @@ class DataModule(pytorch_lightning.LightningDataModule):
         """
         if not self.val_dataset:
             self.val_dataset = CacheDataset(
-                                    data = self.val_data,
-                                    transform = self.val_test_transforms,
-                                    num_workers = self.num_workers,
+                data=self.val_data,
+                transform=self.val_test_transforms,
+                num_workers=self.num_workers,
             )
 
-        return DataLoader(self.val_dataset, batch_size=self.batch_size,
-                            num_workers=self.num_workers, collate_fn=list_data_collate,
-                            pin_memory=is_available())
-    
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=list_data_collate,
+            pin_memory=is_available(),
+        )
+
     def test_dataloader(self):
         """
         Define validation dataloader
@@ -215,15 +241,18 @@ class DataModule(pytorch_lightning.LightningDataModule):
         """
         if not self.test_dataset:
             self.test_dataset = CacheDataset(
-                                    data = self.test_data,
-                                    transform = self.val_test_transforms,
-                                    num_workers = self.num_workers,
+                data=self.test_data,
+                transform=self.val_test_transforms,
+                num_workers=self.num_workers,
             )
 
-        return DataLoader(self.test_dataset, batch_size=self.batch_size,
-                            num_workers=self.num_workers, collate_fn=list_data_collate,
-                            pin_memory=is_available())
-
+        return DataLoader(
+            self.test_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            collate_fn=list_data_collate,
+            pin_memory=is_available(),
+        )
 
     @staticmethod
     def fetch_xr(subject_data: SubjectData = None) -> List[ImageScanData]:
@@ -235,11 +264,14 @@ class DataModule(pytorch_lightning.LightningDataModule):
         scan_objects = []
 
         for exp in subject_data.experiments:
-            if "CR" in subject_data.experiments[exp].modality or "DX" in subject_data.experiments[exp].modality:
+            if (
+                "CR" in subject_data.experiments[exp].modality
+                or "DX" in subject_data.experiments[exp].modality
+            ):
                 for scan in subject_data.experiments[exp].scans:
                     scan_objects.append(subject_data.experiments[exp].scans[scan])
         return scan_objects
-    
+
     @staticmethod
     def fetch_label(subject_data: SubjectData = None):
         """
@@ -247,13 +279,16 @@ class DataModule(pytorch_lightning.LightningDataModule):
         """
         label = None
         for exp in subject_data.experiments:
-            if "CR" in subject_data.experiments[exp].modality or "DX" in subject_data.experiments[exp].modality:
+            if (
+                "CR" in subject_data.experiments[exp].modality
+                or "DX" in subject_data.experiments[exp].modality
+            ):
                 temp_label = subject_data.experiments[exp].label
                 x = temp_label.split("_")
                 label = int(x[1])
 
         return label
-    
+
     def dataset_stats(self, dataset: List[Dict], fields=["label"]) -> dict:
         """Calculate dataset statistics
 
