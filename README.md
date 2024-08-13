@@ -54,7 +54,8 @@ As there will be differences between local development and running on DGX (for e
 Note: The values present in the template config files are examples, you can remove any except those in `[server]` and `[project]` which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
 
 ### 2. `project/XNATDataImport.py`
-This file is used to define and pull the required data from XNAT. It utilises DataBuilderXNAT to do so as shown in the example.
+This file is used to define and pull the required data from XNAT. It utilises DataBuilderXNAT to do so as shown in the example, if you require additional or different data from XNAT additional actions can be added.
+
 If your data is not stored in XNAT this can be replaced by any method that accesses your data.
 
 
