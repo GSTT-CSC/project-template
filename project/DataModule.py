@@ -12,8 +12,6 @@ from torch.cuda import is_available
 from torchvision.utils import make_grid
 from sklearn.model_selection import train_test_split
 
-from utils.tools import DataBuilderXNAT
-from xnat.mixin import ImageScanData, SubjectData
 import matplotlib.pyplot as plt
 
 from project.transforms import (
@@ -34,16 +32,20 @@ class DataModule(pytorch_lightning.LightningDataModule):
 
     def __init__(
         self,
+        raw_data,
         xnat_configuration: dict = None,
         batch_size: int = 1,
         num_workers: int = 4,
         visualise_training_data=True,
+        image_series_option: str = 'error',
     ):
         super().__init__()
-        self.num_workers = num_workers
-        self.batch_size = batch_size
+        self.raw_data = raw_data
         self.xnat_configuration = xnat_configuration
+        self.batch_size = batch_size
+        self.num_workers = num_workers
         self.visualise_training_data = visualise_training_data
+        self.image_series_option = image_series_option
 
         self.train_transforms = Compose(
             load_xnat(self.xnat_configuration, self.image_series_option)
@@ -57,22 +59,6 @@ class DataModule(pytorch_lightning.LightningDataModule):
             + normalisation()
             + output_transforms()
         )
-
-    def get_data(self) -> None:
-        """
-        Fetches raw XNAT data and stores in raw_data attribute
-        """
-        actions = [
-            (self.fetch_xr, "image"),
-            (self.fetch_label, "label"),
-        ]
-
-        data_builder = DataBuilderXNAT(
-            self.xnat_configuration, actions=actions, num_workers=self.num_workers
-        )
-
-        data_builder.fetch_data()
-        self.raw_data = data_builder.dataset
 
     def validate_data(self) -> None:
         """
@@ -125,9 +111,8 @@ class DataModule(pytorch_lightning.LightningDataModule):
             if sample["data_label"] == "label"
         ]
 
-    def prepare_data(self, *args, **kwargs):
+    def setup(self, *args, **kwargs):
 
-        self.get_data()
         logging.info("Validating data")
         self.validate_data()
 
@@ -253,41 +238,6 @@ class DataModule(pytorch_lightning.LightningDataModule):
             collate_fn=list_data_collate,
             pin_memory=is_available(),
         )
-
-    @staticmethod
-    def fetch_xr(subject_data: SubjectData = None) -> List[ImageScanData]:
-        """
-        Function that identifies and returns the required xnat ImageData object from a xnat SubjectData object
-        along with the 'key' that it will be used to access it.
-        """
-
-        scan_objects = []
-
-        for exp in subject_data.experiments:
-            if (
-                "CR" in subject_data.experiments[exp].modality
-                or "DX" in subject_data.experiments[exp].modality
-            ):
-                for scan in subject_data.experiments[exp].scans:
-                    scan_objects.append(subject_data.experiments[exp].scans[scan])
-        return scan_objects
-
-    @staticmethod
-    def fetch_label(subject_data: SubjectData = None):
-        """
-        Function that identifies and returns the required label from a XNAT SubjectData object.
-        """
-        label = None
-        for exp in subject_data.experiments:
-            if (
-                "CR" in subject_data.experiments[exp].modality
-                or "DX" in subject_data.experiments[exp].modality
-            ):
-                temp_label = subject_data.experiments[exp].label
-                x = temp_label.split("_")
-                label = int(x[1])
-
-        return label
 
     def dataset_stats(self, dataset: List[Dict], fields=["label"]) -> dict:
         """Calculate dataset statistics
