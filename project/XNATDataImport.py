@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 import numpy as np
 
-from mlops.data.tools.tools import DataBuilderXNAT
+from utils.tools import DataBuilderXNAT
 from xnat.mixin import ImageScanData, SubjectData
 from typing import List, Dict
 
