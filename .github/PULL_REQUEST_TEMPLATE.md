@@ -1,3 +1,6 @@
+### Linked Issue(s)
+> Explicitly tag the issue linked to this pull request, if any.
+
 ### Summary of changes
 *Briefly describe the changes in this PR.*
 
@@ -19,6 +22,3 @@ Briefly describe the outcome of the review and any actions taken.
 
 ## Quality Assurance
 - [ ] Unit tests added
-
----
-[ ] Reviewed and approved by an authorized Quality Representative.
