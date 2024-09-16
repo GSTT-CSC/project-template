@@ -1,0 +1,42 @@
+- document: proposal
+  version:
+- document: software_req_spec
+  version:
+- document: hazard_log
+  version:
+- document: software_design_spec
+  version:
+- document: design_plan
+  version:
+- document: verif_and_validation_plan
+  version:
+- document: user_acceptance_criteria
+  version:
+- document: support_agreement
+  version:
+- document: post_deployment_surveillance_plan
+  version:
+- document: clinical_safety_case_report
+  version:
+- document: clinical_risk_management_plan
+  version:
+- document: cyber_security
+  version:
+- document: revision_level_history
+  version:
+- document: risk_management_report
+  version:
+- document: software_description
+  version:
+- document: software_development_and_maintenance_rec
+  version:
+- document: software_plan
+  version:
+- document: software_release_activity_record
+  version:
+- document: test_record
+  version:
+- document: unresolved_anomalies
+  version:
+- document: data_description
+  version:

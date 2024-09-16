@@ -1,10 +1,51 @@
-xnat_project_name:
+xnat_project_name: NAME
 
-dataset_version:
+dataset_version: VERSION
 
-preprocess_description:
+preprocess_description: DESCRIPTION
+
+train_dataset_summary: DATASET SUMMARY
+train_data_excl: Exclusion Criteria
+train_dataset_size: SIZE
+train_input: Images
 
 train_dataset:
+- total:
+    subgroups:
+    - gender:
+        Female: 10
+        Male: 10
+    - ethnicity:
+        Not Stated:
+        Asian:
+        Black:
+        Latin American:
+        Mixed:
+        White:
+    - Age:
+        0-15:
+        16-20:
+        21-25:
+        26-30:
+        31-35:
+        36-40:
+        41-45:
+        46-50:
+        51-55:
+        56-60:
+        61-65:
+        66-70:
+        71-75:
+        76-80:
+        81-85:
+        86-90:
+        91+:
+- positive:
+    subgroups:
+- postive_female_mixed:
+    subgroups:
+    - age:
+
 
 test_dataset:
 
