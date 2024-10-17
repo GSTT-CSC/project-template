@@ -49,6 +49,10 @@ mlops run -h
 
 ### There are 5 main components that need to be completed after cloning the template:
 
+Here is a simplified diagram of the project flow:
+
+<img src="https://github.com/user-attachments/assets/38254e3a-8f6b-4d78-bbf6-890a4da37f60" alt="image_classification_template" width="600" height="600">
+
 ### 1. `config/config.cfg` and `config/local_config.cfg`
 The config file contains all the information that is used for configuring the project, experiment, and tracking server. This includes training parameters and XNAT configurations.
 
