@@ -1,0 +1,3 @@
+monai-deploy-app-sdk==0.5.1
+csc-mlops==0.9.18
+highdicom==0.22.0
