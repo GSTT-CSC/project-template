@@ -1,0 +1,16 @@
+ClassLabel,TextString
+A,The patient shows mild symptoms of fatigue and lethargy.
+A,No significant abnormalities were found during the examination.
+A,A slight increase in iron levels was observed.
+A,The patient reports occasional stomach discomfort.
+A,Blood tests indicate borderline anemia.
+B,There are no signs of infection or inflammation in the bloodwork.
+B,An abnormal growth was detected in the gastrointestinal tract.
+B,Patient complains of recurring chest pains.
+B,The biopsy results showed mild inflammation in the tissues.
+B,The colonoscopy revealed several polyps in the lower intestine.
+C,The patient exhibits severe symptoms of jaundice and abdominal pain.
+C,Advanced cirrhosis was confirmed during the imaging tests.
+C,Liver function tests indicate significant deterioration.
+C,There is evidence of ascites in the abdominal cavity.
+C,The patient has a history of alcohol-related liver disease.
