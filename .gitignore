@@ -129,3 +129,4 @@ mlruns/
 #git hooks
 .files_exceptions
 .sensitive_exceptions
+.DS_Store
