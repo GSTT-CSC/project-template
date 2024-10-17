@@ -198,11 +198,6 @@ class NLPNetwork(pl.LightningModule):
                 predicted_label = torch.argmax(output)
                 true_label = torch.argmax(label)
                 if (predicted_label != true_label) and (idx < len(input_ids[0])):
-                    print(input_ids[0].shape)
-                    print(predictions.shape)
-                    print(labels.shape)
-                    print("*" * 100)
-
                     sentence = self.tokenizer.decode(input_ids[0][idx])
                     sentence_info = {
                         "sentence": sentence,
