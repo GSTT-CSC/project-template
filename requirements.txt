@@ -8,3 +8,5 @@ timm
 pytest
 pytest-cov
 flake8
+PyYaml
+deepdiff
