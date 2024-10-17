@@ -1,0 +1,54 @@
+# Checks whether the current template documents are the latest versions available in CSC-QMS repository
+# Note: this will only work for CSC team memebrs who have authentication to access
+
+name: Check QMS versions of templates
+
+on:
+  workflow_dispatch:
+  # run monthly
+  schedule:
+    - cron: '0 9 1 * *'
+
+env:
+  PROJECT_NAME: template            # the project name
+  APPLICATION_DIR: project          # the name of the main directory that contains the project code
+
+jobs:
+  compare_manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout this repo
+        uses: actions/checkout@v4
+        with
+          ref: 73_pull_qms_docs
+        path: main
+
+      - name: checkout QMS documents
+        uses: actions/checkout@v4
+        with:
+            sparse-checkout: records/project_doc_templates
+            repository: GSTT-CSC/CSC-QMS
+            path: csc-qms
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.11'
+
+      - name: Install python packages
+        run: |
+          python -m pip install --upgrade pip
+          pip install PyYaml deepdiff
+
+      - name: Identify updated files from manifest
+        run: |
+          python
+
+      - name: Create Issue from file
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: Monthly Check for QMS template updates
+          content-filepath: ./example-content/output.md
+          labels: |
+            report
+            automated issue
