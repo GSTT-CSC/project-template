@@ -125,7 +125,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
             if sample["data_label"] == "label"
         ]
 
-    def prepare_data(self, *args, **kwargs):
+    def prepare_data(self, train_split, test_val_split, *args, **kwargs):
 
         self.get_data()
         logging.info("Validating data")
@@ -133,10 +133,10 @@ class DataModule(pytorch_lightning.LightningDataModule):
 
         # Creates 50-25-25 split for train, val, test sets (update as you wish)
         self.train_data, val_test = train_test_split(
-            self.raw_data, test_size=0.5, random_state=42
+            self.raw_data, test_size=train_split, random_state=42
         )
         self.val_data, self.test_data = train_test_split(
-            val_test, test_size=0.5, random_state=42
+            val_test, test_size=test_val_split, random_state=42
         )
 
         mlflow.log_text(

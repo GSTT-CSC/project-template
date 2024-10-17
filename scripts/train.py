@@ -58,7 +58,7 @@ def train(config):
         visualise_training_data = config['params']['visualise_training_data'],
         )
 
-    dm.prepare_data()
+    dm.prepare_data(train_split=config['params']['train_split'], test_val_split=config['params']['test_val_split'])
 
     n_classes = len(set([x for x in label_dict.values() if x is not None]))
     mlflow.log_param('n_classes', n_classes)
