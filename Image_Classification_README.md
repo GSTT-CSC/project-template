@@ -22,7 +22,7 @@ This repository contains a skeleton project template for use with new image clas
 
 ## Getting started
 
-1.The first thing to do after cloning this template is to rename the appropriate files and folders to make the directory project specific. 
+1. The first thing to do after cloning this template is to rename the appropriate files and folders to make the directory project specific. 
 The `project` directory should be renamed to make it clear that it contains your project files. 
 
 2. This project template makes use of XNAT for image storage and MLOps. Follow instructions in https://github.com/GSTT-CSC/MLOps-tutorial to set up XNAT and MLOps for use. However you don't need to use XNAT for the datastore the train.py can be run with a local dataset.    
