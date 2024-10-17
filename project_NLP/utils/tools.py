@@ -31,6 +31,6 @@ def wrap_and_log(model, tokenizer):
         "project_nlp",
         python_model=wrappedModel,
         signature=signature,
-        code_path=["project_NLP/", "deployment/", "application/", "config/"],
+        code_path=["project_NLP/", "config/"],
         pip_requirements="requirements.txt",
     )
