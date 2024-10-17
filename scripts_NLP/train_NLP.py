@@ -15,8 +15,6 @@ from project_NLP.NLPDataModule import NLPDataModule
 from project_NLP.NLPNetwork import NLPNetwork
 from project_NLP.utils.tools import wrap_and_log
 
-mlflow.set_tracking_uri("http://localhost:85")
-
 
 def train(
     data_path,
@@ -56,6 +54,7 @@ def train(
     current_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     mlflow.end_run()
 
+    # KFold, data preparation
     with mlflow.start_run(run_name="Parent_Run_{current_time}"):
         if use_kfold and n_folds > 1:
 
