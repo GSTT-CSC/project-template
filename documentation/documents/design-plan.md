@@ -25,20 +25,19 @@ title: Design Plan
 
 |              |              |
 |--------------|--------------|
-| **Author**   |              |
-| **Approval** |              |
+| **Author**   | Matthew Tedder             |
+| **Approval** | Sarah Misson             |
 
 ## 2. Purpose
 
 This document describes a set of activities which will be used during software risk management, development, and 
 maintenance of {{device.name}}. It is written primarily for software developers.
 
-{{device.name}} is assigned a Class {{device.mhra_classification}} software safety class, which means non-serious injury could occur if the
-software fails.
+{{device.name}} is assigned a Class {{device.mhra_class}} software safety class, which means clinical processes will not be impacted if the software fails as this script is for indication only and does not replace any indepedent check processes.
 
 All the software items that compose the software system are also presumed to have the same Class. The primary purpose 
 of this document is to help developers ensure {{device.name}} is safe and useful while also allowing developers to be 
-productive. The secondary purpose is to comply with BS EN 62304:2006 and ISO 13485:2016.
+productive. This is informed by BS EN 62304:2006 and ISO 13485:2016; however, we do not claim the script to be fully compliant.
 
 
 ## 3. Scope
@@ -54,9 +53,13 @@ This document applies to {{device.name}} release {{device.version}}.
 
 ## 5. Roles and Responsibilities
 
-| Role | Responsibilities |
-|------|------------------|
-|      |                  |
+|Name | Role | Responsibilities |
+|------|------------------|-----------|
+| Matthew Tedder      | Lead Developer, Clinical Lead      | Project management, documentation, software development, testing, code review, clinical expertise and training |
+| Edmund Goodwin | Developer | Software development, testing and code review |
+| Marium Naeem | Radiotherapy Physicist | Software testing, documentation, clinical expertise and training |
+| Mark McGovern | Radiotherapy Physicist | Clinical expertise |
+| Sarah Misson | Clinical Safety Officer | Overall sign off |
 
 ## 6. Related Documents
 
@@ -77,16 +80,14 @@ ___
 ### Development Standards
 
 - This application has been developed within an ISO 13485:2016-certified quality management system.
-- The development of this medical software application follows BS EN 62034:2006.
 - Clinical risk management activities have been conducted in accordance to DCB0129 and DCB0160, based on ISO 14971:2019
-- This application has been design and developed following the usability standard ISO 62366:2015.
-- This application uses python 3 as the main programming language and conforms to PEP8 coding conventions.
+- This application has been designed and developed following the usability standard ISO 62366:2015.
+- This application uses c# .netframework 4.5, Variand Medical Systems ESAPI v15.6
 
 
 ### Development methods
 
-This project uses a part mixed agile/waterfall software development lifecycle development to benefit from the input and concerns 
-from a range of stakeholders as new requirements and risks as identified, but only releases safe and effective application into the clinical environment.
+This project uses a waterfall software development lifecycle, and will have testing as part of this prior to release.
 
 
 ### Development Tools
@@ -95,8 +96,8 @@ This project utilises the following tools for development:
 
 | Software                                             | Software Validation Report |
 |------------------------------------------------------|----------------------------|
-| PyCharm 2022.1.1 (Professional Edition)              | (add report from QMS)      |
-| XNAT (eXtensible Neuroimaging Archive Toolkit   <br/ | (add report from QMS)      |
+| Visual Studio v2012            |      |
+| VMS ESAPI v15.6 		 |     |
 
 ### Testing Plan
 
@@ -123,15 +124,16 @@ The Risk Assessment, Risk Control and other activities below are intended to mee
 
 ---
 
-### Activities diagram
-
-A diagram will be produce to show the sequence of activities required for the development of the project.
-
 ### Exploratory analysis
 
-Analysis will be conducted on the dataset or subset of the dataset for complete understanding and characterisation of 
-biases, completeness, format and complexity. The analysis will be shared to inform stakeholders during planning 
+Analysis will be conducted on the dataset or subset of the dataset for complete understanding and characterisation of the requirements for the plancheck script. The analysis will be shared to inform stakeholders during planning 
 activities such as requirements gathering. 
+
+## Requirements Gathering
+
+Requirements will be gathered in multiple sessions by a range of stakeholder representatives as nominated by the project lead, clinical lead, CSO, or other stakeholder.  
+
+A prospective audit will be completed to gather information that will also inform the requirements of the checking script.  The audit will continue over the software life cycle to continue informing updates to the script.
 
 ### Planning
 
@@ -162,9 +164,7 @@ software requirements and system requirements, are re-evaluated and updated as a
 
 ### Architectural Design
 
-A diagram for the system architecture and how it integrates with other clinical systems will be created and regularly
-review to reflect the development of the system requirements specification, system design specification and hazard log.
-
+System architecture will be built using model view view model (MVVM).  
 
 ### Clinical Risk Management 
 
