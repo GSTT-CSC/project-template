@@ -1,10 +1,30 @@
-csc-mlops
-torch
-torchmetrics
-torchvision
-pytorch_lightning
-ray
-timm
-pytest
-pytest-cov
-flake8
+# Base requirements
+pytorch-lightning==2.2.1
+torch==2.0.1
+csc-mlops  
+mlflow==2.6.0
+torchvision==0.15.2
+boto3  
+seaborn==0.13.2
+
+scikit-learn  
+matplotlib==3.7.2 
+tqdm==4.67.0  
+dask>=2023.9.1 
+pandas>=2.1.1  
+transformers==4.34.0  
+tune==0.1.2 
+torchmetrics==1.0.2  
+
+# Preprocessing requirements
+rapidfuzz==3.3.0  
+PySocks==1.7.1  
+
+# Automated tests
+pytest>=7.4.2 
+pytest-cov==4.1.0 
+Faker==19.10.0  
+fugue==0.8.9  
+fugue-sql-antlr==0.1.10  
+hypothesis==6.83.1  
+numpy==1.26.0 
