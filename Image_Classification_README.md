@@ -25,7 +25,7 @@ This repository contains a skeleton project template for use with new image clas
 1. The first thing to do after cloning this template is to rename the appropriate files and folders to make the directory project specific. 
 The `project` directory should be renamed to make it clear that it contains your project files. 
 
-2. This project template makes use of XNAT for image storage and MLOps. Follow instructions in https://github.com/GSTT-CSC/MLOps-tutorial to set up XNAT and MLOps for use. However you don't need to use XNAT for the datastore the train.py can be run with a local dataset.    
+2. This project template makes use of XNAT for image storage and MLOps. Follow instructions in https://github.com/GSTT-CSC/MLOps-tutorial to set up XNAT and MLOps for use. However you don't need to use XNAT for the datastore, the train.py can be run with a local dataset.    
 
 3. This project template makes use of classes and functions provided by the [csc-mlops](https://github.com/GSTT-CSC/MLOps.git) package, installing this to your local environment is easy with pip:
 
@@ -34,13 +34,13 @@ pip install csc-mlops
 ```
 4. Define the config parameters and details in `config/config.cfg` and `config/local_config.cfg`. Further details about the config files can be seen below. 
 
-5. Once, the configuration variables have been defined. To begin a training run once you've set up your project following the guidelines below, utilise the csc-mlops package run command.
+5. Once you've set up your project following the guidelines below, to begin a training run utilise the csc-mlops package run command:
 
 ```shell
 mlops run scripts/train.py -c config/config.cfg
 ```
 
-Run the following for usage information.
+Run the following for usage information:
 ```shell 
 mlops run -h
 ```
@@ -56,7 +56,7 @@ The config file path is also passed as an argument to the MLOps `Experiment` cla
 
 As there will be differences between local development and running on DGX (for example XNAT configurations), it is highly encouraged to make use of `local_config` when devlopiong locally.
 
-The config files have the sections `[server]`, `[project]`, `[system]`, `[xnat]` and `[params]`.  `[server]` defines the mlflow project,  `[project]` conatines the name and details about the project, `[system]` contains details about the computer systems detailing the CPU and GPU availability and usage, `[xnat]` contains the XNAT project connections information, and `[params]` contains the parameters for the training model. The values present in the template config files are examples, you can remove any except those in `[server]` and `[project]` which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
+The config files have the sections `[server]`, `[project]`, `[system]`, `[xnat]` and `[params]`.  `[server]` defines the mlflow project,  `[project]` contains the name and details about the project, `[system]` contains details about the computer systems detailing the CPU and GPU availability and usage, `[xnat]` contains the XNAT project connections information, and `[params]` contains the parameters for the training model. The values present in the template config files are examples, you can remove any except those in `[server]` and `[project]` which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
 
 
 ### 2. `project/Network.py`
@@ -79,7 +79,7 @@ The example involves retrieving data from XNAT (more on this below) which may no
 ### 4. `scripts/train.py`
 This file is used to define the training run. 
 
-This is where the `Datamodule` and `Network` are pulled together and the values defines in the config file is used to define the datamodule 
+This is where the `Datamodule` and `Network` are pulled together and the values defined in the config file are used to define the datamodule 
 and network used in in the training.  
 
 The example includes callbacks to retrieve the best model parameters, feel free to delete or add as relevant to your project.
@@ -90,8 +90,7 @@ This dockerfile sets up the Docker image that the MLOps run will utilise.
 In the example this is just a simple environment running python version 3.10.
 You will most likely need to adapt this for your project.
 
-When runnning not with XNAT and local data you will not use the dockerfile.
-
+When runnning with local data (i.e. not XNAT) you will not need to use the dockerfile.
 
 #### Examples of projects utilising these components:
 
