@@ -1,27 +1,40 @@
 ---
-documentid: v&v-v1.0
-version: 1.0
+qms_version: 2.2.0
+sop_id: CSC PR.003
+sop_version: 2.0.1
+template_id: CSC F.020
+template_version: 2.0.1
+record_version: 
+record_id: VVP-001
+title: Verification and Validation Plan
 
 ---
 
-# Verification and Validation
+# Verification and Validation Plan
+
+## General 
+
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.020     |
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                | CSC PR.003    |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
 
 
-|             |          |
-|-------------|----------|
-| Document Id | v&v-v1.0 |
-| Version     | 1.0      |
-| Author      | n        |
-|             |          |
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
 
-
-### Purpose 
+### Purpose and Scope
 
 This document describes a set of activities which will be used for the verification and validation of the software
 
-### Scope
-
 This document applies to {{device.name}} release {{device.version}}.
+
 
 ### Definitions
 
@@ -40,19 +53,14 @@ This document applies to {{device.name}} release {{device.version}}.
 | Clinical Lead    |      | Review Verification and validation test                                               |
 | CSO              |      | Ensure Risks controls and verified/validated                                          |
 
-
-### Related Documents
-
-The following documents are related to design and development activities and contains records 
-
-| Document id                               | Purpose                                                                                                                                                                                                                                                                                                                                                      |
-|-------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Software Requirements Specification (SRS) | Describes what the software needs to accomplish.  It is largely written by the project lead during the requirements gathering and analyiss stage, and is reviewed by the project lead during the release.  Software developers may clarify and extend the document slightly during the unit implementation and testing activity                              |
-| Clinical Risk Management plan (CRMP)      |                                                                                                                                                                                                                                                                                                                                                              |
-| Software Design Specification (SDS)       | Describes how the software accomplishes what the SRS requires.  A significant portion is written by the project lead during the architectural design, but many details and specifics are added by software developers during the  unit implementation and testing activity.  It is reviewed for consistency by the project lead during the release activity. |
-| Device Classification                     |                                                                                                                                                                                                                                                                                                                                                              |
-| Test Record                               | Describes a set of tests which were run, when, and by who.  It also must include enough details to reproduce the testing setup.                                                                                                                                                                                                                              |
-| Release Record                            | Describes the verifications steps performed by the project lead during the release.                                                                                                                                                                                                                                                                          |
+| Document id                               | Purpose                                                                                                                                                                                                                                                                                                                                                    |
+|-------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Software Requirements Specification (SRS) | Describes what the software needs to accomplish.  It is largely written by the project lead during the requirements gathering and analysis stage, and is reviewed by the project lead during the release.  Software developers may clarify and extend the document slightly during the unit implementation and testing activity                            |
+| Clinical Risk Management plan (CRMP)      |                                                                                                                                                                                                                                                                                                                                                            |
+| Software Design Specification (SDS)       | Describes how the software accomplishes what the SRS requires.  A significant portion is written by the project lead during the architectural design, but many details and specifics are added by software developers during the unit implementation and testing activity. It is reviewed for consistency by the project lead during the release activity. |
+| Device Classification                     |                                                                                                                                                                                                                                                                                                                                                            |
+| Verification and validation results       | Presents the results of tests which were run, when, and by who.                                                                                                                                                                                                                                                                                            |
+| Release Record                            | Describes the verifications steps performed by the project lead during the release.                                                                                                                                                                                                                                                                        |
 
 
 ### 1. Verification plan
@@ -61,7 +69,7 @@ The following documents are related to design and development activities and con
 
 The main method of verifying the code has been written correctly is to generate and perform unit tests. 
 
-- Unit tests will be created to cover >90% of the code. 
+- Unit tests will be created to cover > 90% of the code. 
 - Tests will be written for each item in the design specification. 
 - Unit tests will be reviewed at key stages of the development process.
 - Each Pull Request should only be merged where all unit tests pass. 
@@ -69,26 +77,32 @@ The main method of verifying the code has been written correctly is to generate 
 
 #### 1.2 Unit tests
 
-| Design spec item | Unit Tests                                                                                                                                            | Expected Results | Results |
-|------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|------------------|---------|
+| Design Spec. Item | Unit Tests | Expected Results |
+|-------------------|------------|------------------|
 
 
 ### 2. Validation plan
 
-#### 2.1 Validation test Overview
+#### 2.1 Validation Test Overview
 
-Validation tests are manual checks and tasks performed to ensure the correct application has been built.
+Validation tests are typically manual checks and tasks performed to ensure the correct application has been built.
 - Validation tests are performed by the software developer to check that the software meets all items identified in the 
 System requirements specification. 
 - In addition, validation tests can also capture design specification items that cannot be verified with automated unit
 tests. 
+- It is ok if some tests do not trace to any particular requirements, however all requirements must be covered by some 
+tests (if they are not, add tests).
+
 
 #### 2.2 Validation tests
 
-| Design Spec Item | Test(s)                                                                                                                                      | Performed by     | Expected result     | Result |
-|------------------|----------------------------------------------------------------------------------------------------------------------------------------------|------------------|---------------------|--------|
+
+| Design Spec. Item | Test(s)   | Expected result     |
+|-------------------|-----------|---------------------|
+
+
+| Requirements Spec. Item | Test(s)   | Expected result   | 
+|-------------------------|-----------|-------------------|
 
 
 
-| Requirements spec item | Test(s)                                                                     | Performed by     | Expected result | Result |
-|------------------------|-----------------------------------------------------------------------------|------------------|-----------------|--------|
