@@ -135,7 +135,7 @@ def mlflow_logging_and_checkpoint(
         monitor="avg_val_accuracy",
         dirpath="./checkpoints/",
         filename=f"{run_name}-best_model",
-        save_top_k=0,
+        save_top_k=1,
         mode="max",
     )
 
