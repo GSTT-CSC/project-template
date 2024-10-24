@@ -49,7 +49,7 @@ The config file contains all the information that is used for configuring the pr
 
 The config file path is also passed as an argument to the MLOps `Experiment` class where the experiment and tracking are configured.
 
-As there will be differences between local development and running on DGX (for example XNAT configurations), it is highly encouraged to make use of `local_config` when devlopiong locally.
+As there will be differences between local development and running on DGX (for example XNAT configurations), it is highly encouraged to make use of `local_config` when developing locally.
 
 Note: The values present in the template config files are examples, you can remove any except those in `[server]` and `[project]` which are necessary for MLOps. Outside of these you are encouraged to add and modify the config files as relevant to your project.
 
