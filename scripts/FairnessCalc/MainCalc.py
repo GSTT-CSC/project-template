@@ -1,3 +1,5 @@
+"""Based on the paper: Charan J, Biswas T. How to calculate sample size for different study designs in medical research? Indian J Psychol Med. 2013 Apr;35(2):121-6. doi: 10.4103/0253-7176.116232. PMID: 24049221; PMCID: PMC3775042."""
+
 import math
 import scipy.stats as stats
 
