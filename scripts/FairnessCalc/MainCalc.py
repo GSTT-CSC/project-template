@@ -63,9 +63,9 @@ def main():
     print("1. **Odds Ratio**: This measures the strength of the association between two groups. It represents how much more likely the outcome is in one group compared to the other.")
 
     
-    print("\n2. **Allocation Ratio**: This refers to the ratio of sample sizes between two groups in your study. For example:")
+    print("\n2. **Allocation Ratio**: This refers to the ratio of sample sizes between two groups in your study.")
     
-    # Get user inputs with immediate validation and feedback
+    # Get user inputs
     odds_ratio = get_valid_input("Enter odds ratio (must be > 0): ", 
                                 lambda x: x > 0, 
                                 "Odds ratio must be greater than 0.")
