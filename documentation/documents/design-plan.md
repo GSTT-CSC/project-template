@@ -1,23 +1,40 @@
+---
+qms_version: 2.2.0
+sop_id: CSC PR.001
+sop_version: 2.0.1
+template_id: CSC F.008
+template_version: 2.0.1
+record_version:
+record_id: DP-001
+title: Design Plan
+---
 
 # Design Plan 
 
 ## 1. General
-|                           |     |
-|---------------------------|-----|
-| **Document ID**           |     |
-| **Author**                |     |
-| **Approval**              |     |
-| **Revision**              |     |
-| **Regulatory References** |     |
+
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.008     | 
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                | CSC PR.001    |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
 
 
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
 
 ## 2. Purpose
 
 This document describes a set of activities which will be used during software risk management, development, and 
 maintenance of {{device.name}}. It is written primarily for software developers.
 
-{{device.name}} is assigned a Class [CLASS] software safety class, which means non-serious injury could occur if the software fails.
+{{device.name}} is assigned a Class {{device.mhra_classification}} software safety class, which means non-serious injury could occur if the
+software fails.
 
 All the software items that compose the software system are also presumed to have the same Class. The primary purpose 
 of this document is to help developers ensure {{device.name}} is safe and useful while also allowing developers to be 
@@ -43,16 +60,17 @@ This document applies to {{device.name}} release {{device.version}}.
 
 ## 6. Related Documents
 
-| Document ID                             | Purpose | Link |
-|-----------------------------------------|---------|------|
-| Software Requirement Specification      |         |      |
-| Clinical Risk Management plan (CRMP)    |         |      |
-| Hazard Log                              |         |      |
-| Software Design Specification (SDS)     |         |      |
-| Verification and validation plan        |         |      |
-| Verification and validation test record |         |      |
-| Release Record                          |         |      |
-|                                         |         |      |
+| Document ID                             | Purpose                                                                                                                               | Link |
+|-----------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------|------|
+| Software Requirement Specification      | Describes the user requirements, risk control to be implemented, and regulatory requirements need for design planning.                |      |
+| Clinical Risk Management Plan (CRMP)    | Lays out the clinical risk management frameworks, activities, and results.                                                            |      |
+| Hazard Log                              | The outputs of Risk analysis, assessment and mitigation processes conduct with key stakeholders.                                      |      |
+| Software Design Specification (SDS)     | Logs the outputs of the design activities in detail, tracing tasks back to the requirements                                           |      |
+| Verification and validation plan        | Describes the framework for ensuring the applications is built safely effective and to specification using automated and manual tests |      |
+| Verification and validation test record | Present the results of the automated and manual test to demonstrate the correct application has been built safely.                    |      |
+| Release Record                          |                                                                                                                                       |      |
+|                                         |                                                                                                                                       |      |
+
 
 ___
 
@@ -75,10 +93,10 @@ from a range of stakeholders as new requirements and risks as identified, but on
 
 This project utilises the following tools for development:
 
-| Software                                       | Software Validation Report |
-|------------------------------------------------|----------------------------|
-| PyCharm 2022.1.1 (Professional Edition)        | (add report from QMS)      |
- | XNAT (eXtensible Neuroimaging Archive Toolkit  | (add report from QMS)      |
+| Software                                             | Software Validation Report |
+|------------------------------------------------------|----------------------------|
+| PyCharm 2022.1.1 (Professional Edition)              | (add report from QMS)      |
+| XNAT (eXtensible Neuroimaging Archive Toolkit   <br/ | (add report from QMS)      |
 
 ### Testing Plan
 
@@ -101,7 +119,7 @@ The activities below are designed to meet the ISO 13485:2016 quality control sta
 The Risk Assessment, Risk Control and other activities below are intended to meet DCB0129 clinical risk management standard.
 
 
-# Activities 
+## Activities 
 
 ---
 
@@ -122,7 +140,7 @@ GitHub pull requests, unless explicitly noted otherwise. The software developers
 for keeping all software activity outputs within version control at the times specified in the activity descriptions.
 
 In the Software Design Specification, record details about the project's build process, including tool versions, 
-environment variables, e.t.c. Also document how the software can be reliably delivered to the point of use without 
+environment variables, etc. Also document how the software can be reliably delivered to the point of use without 
 corruption or unauthorized change.
 
 Keep this planning document up to date as the project commences.
@@ -210,3 +228,5 @@ Verification: Ensure code changes:
 
 
 ### Release 
+
+TBC

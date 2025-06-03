@@ -1,19 +1,31 @@
 ---
-documentid: srs-v1.0
-version: 1.0
-
+qms_version: 2.2.0
+sop_id: CSC PR.001
+sop_version: 2.0.1
+template_id: CSC F.010
+template_version: 2.0.1
+record_version: 
+record_id: SRS-001
+title: System Requirements Specification
 ---
 
-# System Requirements Specification - PROJECT
+# System Requirements Specification
 
+## General
 
-|             |           |
-|-------------|-----------|
-| Document Id | srs-v1.0  |
-| Version     | 1.0       |
-| Author      |           |
-|             |           |
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.010     |
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                | CSC PR.001    |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
 
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
 
 ### Purpose 
 This purpose of this document is to describe what the {{device.name}} application must do. 
@@ -55,13 +67,11 @@ The following stakeholders contributed to the requirements gathering process.
 
 ### Introduction
 
-
 ### Users
-
-####Clinicians
+[TODO: identify all potential users of the software and how they would expect it to work]
+#### Clinicians
 
 #### Trust IT
-
 
 ### Use Environments
 
@@ -77,7 +87,13 @@ SyntheticCT generation. ]
 
 #### Use Case #1
 
+[TODO: The first use case should layout the process of the successful use of the software from end to end, which runs 
+without error]
+
 #### Use Case #2
+
+[TODO: complete another use case describing incorrect use of the application/wrong inputs/system failures\hardware 
+failures/ etc and how the application would successfully handle these errors ]
 
 ### Considerations
 
@@ -121,13 +137,8 @@ is GSTT only for projects built under this QMS)
 
 ### User requirements
 
-| Reference | Requirement title                                                                                           | Requirements Description                                                                                                                                                                        |                                                                                                                                           
-|-----------|-------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| SRS-001   | Shall accept MRI DICOM images.                                                                              | Shall accept only MRI DICOM images from set list of MR protocols. <br> Accepts DICOM Images from certain machines with radiotherapy treatment couch.<br> Accepts a full MRI full DICOM Study.   | 
-
-
-| ID     | Title   | Description   |
-|--------|---------|---------------|
-{%- for requirement in requirements.requirements %}
-| {{ requirement.id }} | {{ requirement.title }} | {{requirement.description}} |
+| Reference | Requirement title    | Requirements Description  | Priority |                                                                                                                           
+|-----------|----------------------|---------------------------|----------|
+{%- for requirement in requirements.requirements %} 
+| {{ requirement.id }} | {{ requirement.title }} | {{ requirement.description }} |{{requirement.priority}}|
 {%- endfor %}

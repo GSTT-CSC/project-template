@@ -1,25 +1,48 @@
 ---
-id: SRAR-001
+qms_version: 2.2.0
+sop_id: CSC PR.025
+sop_version: 2.0.1
+template_id: CSC F.026
+template_version: 2.0.1
+record_version:
+record_id: SRAR-001
 title: Software Release Activity Record
 ---
 
-# Purpose
+# Release Documents
+
+## General
+
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.026     | 
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                | CSC PR.001    |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
+
+
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
+
+## Purpose
 
 The purpose of this document is to provide a record of the verification steps for the software release activity, 
 as performed for {{device.name}}, as well as a record of how the release was built.
 
-# Scope
+## Scope
 
 This document applies to {{device.name}} release {{device.version}}.
 
-# Release Build Environment
+## Release Build Environment
 
 TODO: Record details about how the software release artifact was built. This should be detailed enough that another 
 engineer could reproduce the artifact.
 
-[[62304:5.8.5]]
-
-# Release Verification
+## Release Verification
 
 TODO: fill in this list from the release verification activity
 
