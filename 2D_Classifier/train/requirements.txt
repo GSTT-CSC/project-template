@@ -1,0 +1,10 @@
+csc-mlops
+torch
+torchmetrics
+torchvision
+pytorch_lightning
+ray
+timm
+pytest
+pytest-cov
+flake8
