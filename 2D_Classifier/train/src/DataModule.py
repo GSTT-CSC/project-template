@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 
 import matplotlib.pyplot as plt
 
-from project.transforms import (
+from src.transforms import (
     load_xnat,
     train_augmentation,
     normalisation,

@@ -12,9 +12,10 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from ray.air.integrations.mlflow import setup_mlflow
 from torch.cuda import is_available as cuda_available
 
-from project.DataModule import DataModule
-from project.Network import Network
-from project.DataModule import label_dict
+from src.DataModule import DataModule
+from src.Network import Network
+from src.DataModule import label_dict
+from src.XNATDataImport import XNATDataImport
 
 logger = logging.getLogger(__name__)
 
@@ -50,16 +51,23 @@ def train(config):
 
     mlflow.pytorch.autolog(log_models=False)
 
+    # Import raw data
+    raw_data = XNATDataImport(
+        xnat_configuration = xnat_configuration,
+        num_workers = num_workers,
+        ).import_xnat_data()
+
     # Set up datamodule
     dm = DataModule(
+        raw_data = raw_data,
         xnat_configuration = xnat_configuration,
         num_workers = num_workers,
         batch_size = int(config['params']['batch_size']),
         visualise_training_data = config['params']['visualise_training_data'],
         )
 
-    dm.prepare_data()
-
+    dm.setup()
+    
     n_classes = len(set([x for x in label_dict.values() if x is not None]))
     mlflow.log_param('n_classes', n_classes)
 
@@ -159,4 +167,3 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(config_path)
     train(config)
-
