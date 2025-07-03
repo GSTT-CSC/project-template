@@ -6,7 +6,6 @@ name: Production tests
 on:
   push:
     branches:
-      - 'main'
       - 'master'
       - 'release/*'
 
