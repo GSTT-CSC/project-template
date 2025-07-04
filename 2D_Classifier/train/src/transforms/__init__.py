@@ -1,91 +1,92 @@
 import torch
-from transforms.LoadImageXNATd import LoadImageXNATd
-
 from monai.transforms import (
-    CastToTyped,
-    CropForegroundd,
-    DivisiblePadd,
-    EnsureChannelFirstd,
     LoadImage,
-    LoadImaged,
-    RandFlipd,
-    RandRotate90d,
-    Resized,
-    ResizeWithPadOrCropd,
-    ScaleIntensityd,
-    SelectItemsd,
     SqueezeDimd,
-    TorchVisiond,
+    EnsureChannelFirstd,
+    CropForegroundd,
+    Resized,
+    ScaleIntensityd,
+    CastToTyped,
+    RandFlipd,
+    RandZoomd,
+    RandRotated,
+    RandAffined,
+    RandGaussianNoised,
+    RandGaussianSmoothd,
+    RandScaleIntensityd,
+    RandAdjustContrastd,
+    RandCoarseDropoutd,
+    ResizeWithPadOrCropd,
     ToTensord,
+    SelectItemsd,
+    EnsureTyped,
+    Spacingd,
 )
 
+from src.transforms.LoadImageXNATd import LoadImageXNATd
 
-def zero_or_max(x):
-    """
-    Example function that can be used with cropforegroundd
-    """
-    return (x > 0) & (x < x.max())
-
-
-def load_xnat(xnat_configuration: dict, image_series_option: str):
+def load_xnat(xnat_configuration: dict):
     """
     This transform is used by the DataModule to load images from XNAT
     """
     return [
         LoadImageXNATd(
-            keys=["data"],
-            xnat_configuration=xnat_configuration,
-            expected_filetype_ext=".dcm",
-            image_loader=LoadImage(image_only=True),
-            image_series_option=image_series_option,
+            keys=['data'],
+            xnat_configuration=xnat_configuration, 
+            expected_filetype_ext='.dcm',
+            image_loader=LoadImage(image_only=True, prune_meta_pattern="^0|^2")
         ),
     ]
 
-
-def load_dicom():
-    """
-    This transform is used to load images from dicom file
-    """
-    return [LoadImaged(keys=["image"], reader=None, image_only=True)]
-
-
-# normalisation
-def normalisation():
+def normalise(image_size):
     """
     This transform list is used to prepare tensors for training or inference
     """
     return [
-        EnsureChannelFirstd(keys=["image"]),
-        SqueezeDimd(keys=["image"], dim=3),
-        CropForegroundd(keys=["image"], source_key="image", select_fn=zero_or_max),
-        Resized(keys=["image"], size_mode="longest", spatial_size=256),
-        ResizeWithPadOrCropd(keys=["image"], spatial_size=(256, 256)),
+        SqueezeDimd(keys=['image'], dim=2),
+        EnsureChannelFirstd(keys=['image']),
+        CropForegroundd(keys=['image'], source_key='image'),
+        Resized(keys=['image'], size_mode='longest', spatial_size=image_size+20),
+        #Maybe limit top intensity in case of big spikes?
         ScaleIntensityd(keys=["image"], minv=0.0, maxv=255.0),
         CastToTyped(keys=["image"], dtype=torch.uint8),
     ]
 
-
-# training augmentations
-def train_augmentation():
+def train_augment(image_size):
     """
-    This transform list is used for training augmentation
+    This transform list is used to augment images for training.
+    Aim here is to improve generalisation.
     """
     return [
-        RandFlipd(keys=["image"], prob=0.5, spatial_axis=0),
-        # RandRotate90d(keys=['image'], prob=0.5),
-        TorchVisiond(keys=["image"], name="AugMix", severity=2, fill=0),
+        RandFlipd(keys=['image'], spatial_axis=0, prob=0.5),
+        RandZoomd(keys=['image'], prob=0.2, min_zoom=1.05,max_zoom=1.1),
+        RandRotated(keys=['image'], prob=0.2, range_x=0.4),
+        RandAffined(keys=['image'], prob=0.2, padding_mode='zeros'),
+        RandGaussianNoised(keys=['image'], prob=0.1, mean=0.0, std=0.1),
+        RandGaussianSmoothd(keys=['image'], prob=0.2, sigma_x=(0.5,1.0)),
+        RandScaleIntensityd(keys=['image'], prob=0.15, factors=(0.75,1.25)),
+        RandAdjustContrastd(keys=['image'], prob=0.1, gamma=(0.5,2), retain_stats=True, invert_image=True),
+        RandAdjustContrastd(keys=['image'], prob=0.3, gamma=(0.5,2), retain_stats=True, invert_image=False),
+        ResizeWithPadOrCropd(
+            keys=["image"],
+            spatial_size=(image_size,image_size),
+            mode='replicate'
+        ),
+        RandCoarseDropoutd(keys=['image'], prob=0.5, fill_value=0, holes=8, max_holes=16, spatial_size=(10,10), max_spatial_size=(36,36)),
     ]
 
-
-# final transforms
-def output_transforms():
+def output(image_size):
     """
-    This transform list is used for final checks on tensors before use
+    This transform list is used for final normalisation and feature selection.
     """
     return [
-        CastToTyped(keys=["image"], dtype=torch.float32),
-        ScaleIntensityd(keys=["image"], minv=0.0, maxv=1.0),
-        DivisiblePadd(keys=["image"], k=32),
-        SelectItemsd(keys=["image", "label", "subject_id"], allow_missing_keys=True),
-        ToTensord(keys=["image", "label"], track_meta=False),
+        ResizeWithPadOrCropd(
+            keys=["image"],
+            spatial_size=(image_size,image_size),
+            mode='replicate'
+        ),
+        ScaleIntensityd(keys=["image"], minv=0.0, maxv=1),
+        ToTensord(keys=['image', 'label']),
+        SelectItemsd(keys=['subject_id', 'image', 'label']),
+        EnsureTyped(keys=['image', 'label'], track_meta=False),
     ]
