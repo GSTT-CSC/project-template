@@ -38,8 +38,7 @@ def train(config):
 
     importer = XNATDataImport(
         xnat_configuration = xnat_configuration,
-        num_workers = num_workers,
-        bbox_version = config['detector']['bbox_version']
+        num_workers = num_workers
         )
 
     # Import raw data
