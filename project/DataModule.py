@@ -30,11 +30,10 @@ class DataModule:
         self.random_state = random_state
 
         self.data = None
-        # MODIFIED: Initialize preprocessor as None, will be set to ColumnTransformer object
         self.preprocessor = None
         self.numerical_features = []
         self.categorical_features = []
-        self.text_features = [] # Placeholder, not actively used in current preprocessing logic
+        self.text_features = [] 
 
     def load_and_prepare(self):
         """
@@ -58,17 +57,15 @@ class DataModule:
             else:
                 print("No specified columns were dropped (they might not exist).")
 
-        # Separate features (X) and target (y)
         if self.target_column not in self.data.columns:
             raise ValueError(f"Target column '{self.target_column}' not found in the data.")
         
         X = self.data.drop(columns=[self.target_column])
         y = self.data[self.target_column]
 
-        # Infer column types if not explicitly provided
         self.infer_column_types(X)
 
-        # NEW: Call setup_preprocessor after column types are inferred
+        
         self.setup_preprocessor()
 
         if self.visualise:
@@ -95,14 +92,9 @@ class DataModule:
         Sets up the ColumnTransformer based on inferred column types and
         preprocessor_settings. Ensures self.preprocessor is always a ColumnTransformer object.
         """
-        if self.data is None: # self.data might not be loaded if DataModule is used for inference without load_and_prepare
+        if self.data is None: 
             print("Warning: Data not loaded. Preprocessor setup might be incomplete without full data context.")
-            # We can still proceed if numerical_features/categorical_features were set externally
-            # or if preprocessor_settings explicitly define columns.
             
-        # Ensure numerical_features and categorical_features are populated if self.data is available
-        # This block is somewhat redundant if setup_preprocessor is always called after infer_column_types in load_and_prepare
-        # but good for robustness if called independently.
         if self.data is not None and not self.numerical_features and not self.categorical_features:
             temp_X = self.data.drop(columns=[self.target_column], errors='ignore')
             self.infer_column_types(temp_X)
@@ -111,13 +103,13 @@ class DataModule:
 
         # Numerical Pipeline
         numerical_pipeline_steps = []
-        # Check if 'numerical' key exists in preprocessor_settings
+        
         if 'numerical' in self.preprocessor_settings:
-            # Iterate through the dictionary for numerical settings
+            
             for setting_name, setting_details in self.preprocessor_settings['numerical'].items():
-                if setting_details.get('scaler') == 'standard': # Changed 'type' to 'scaler' based on config
+                if setting_details.get('scaler') == 'standard': 
                     numerical_pipeline_steps.append((f'{setting_name}_scaler', StandardScaler()))
-                # Add other numerical transformers here if needed (e.g., MinMaxScaler, RobustScaler)
+                
         
         if self.numerical_features and numerical_pipeline_steps:
             active_transformers.append(('num_pipeline', Pipeline(numerical_pipeline_steps), self.numerical_features))
@@ -125,17 +117,15 @@ class DataModule:
 
         # Categorical Pipeline
         categorical_pipeline_steps = []
-        # Check if 'categorical' key exists in preprocessor_settings
+        
         if 'categorical' in self.preprocessor_settings:
-            # Iterate through the dictionary for categorical settings
+            
             for setting_name, setting_details in self.preprocessor_settings['categorical'].items():
-                if setting_details.get('encoder') == 'onehot': # Changed 'type' to 'encoder' based on config
-                    # Pass encoder_options if available
+                if setting_details.get('encoder') == 'onehot': 
+                    
                     encoder_options = setting_details.get('encoder_options', {})
                     categorical_pipeline_steps.append((f'{setting_name}_encoder', OneHotEncoder(handle_unknown='ignore', **encoder_options)))
-                elif setting_details.get('encoder') == 'ordinal': # Changed 'type' to 'encoder' based on config
-                    # For OrdinalEncoder, you might need to specify categories based on your data if order matters
-                    # If categories are provided in settings, use them. Otherwise, default.
+                elif setting_details.get('encoder') == 'ordinal': 
                     encoder_options = setting_details.get('encoder_options', {})
                     categorical_pipeline_steps.append((f'{setting_name}_encoder', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1, **encoder_options)))
                 else:
@@ -147,7 +137,6 @@ class DataModule:
 
         if not active_transformers:
             print("No active transformers configured for any columns. Creating a passthrough preprocessor.")
-            # MODIFIED: Assign an empty ColumnTransformer for 'passthrough' behavior
             self.preprocessor = ColumnTransformer(transformers=[], remainder='passthrough')
         else:
             self.preprocessor = ColumnTransformer(transformers=active_transformers, remainder='passthrough')
@@ -163,7 +152,6 @@ class DataModule:
             raise RuntimeError("Preprocessor has not been set up. Call setup_preprocessor() first.")
         
         print("Fitting preprocessor...")
-        # LATEST CHANGE: Explicitly re-assigning the fitted preprocessor
         self.preprocessor = self.preprocessor.fit(X) 
         return self.preprocessor
 
@@ -223,7 +211,6 @@ class DataModule:
             print("Displaying distributions for categorical columns...")
             for col in self.categorical_features:
                 plt.figure(figsize=(8, 6))
-                # Change: Assign x to hue and set legend=False to address FutureWarning
                 sns.countplot(data=self.data, x=col, hue=col, palette='viridis', legend=False)
                 plt.title(f'Count of {col}')
                 plt.xlabel(col)
@@ -246,9 +233,8 @@ class DataModule:
             percentage = (count / total_samples) * 100
             print(f"  {class_name}: {count} ({percentage:.2f}%)")
 
-        # You might add a threshold for "imbalance" and print a warning if exceeded
         min_class_percentage = class_counts.min() / total_samples * 100
-        if min_class_percentage < 10: # Example threshold
+        if min_class_percentage < 10: 
             print(f"Warning: Potential class imbalance detected. Smallest class has {min_class_percentage:.2f}% of samples.")
 
     @staticmethod
@@ -257,8 +243,6 @@ class DataModule:
         Get feature names after preprocessing.
         Assumes ColumnTransformer is used and has get_feature_names_out.
         """
-        # LATEST CHANGE: Special handling for a truly passthrough ColumnTransformer (no actual transformers)
-        # This prevents NotFittedError on get_feature_names_out for stateless transformers.
         if isinstance(fitted_preprocessor, ColumnTransformer) and \
            not fitted_preprocessor.transformers and \
            fitted_preprocessor.remainder == 'passthrough':
@@ -271,7 +255,6 @@ class DataModule:
             print("Warning: Preprocessor does not have 'get_feature_names_out'. Cannot determine feature names automatically.")
             return []
 
-    # Optional: Add methods for plotting if needed elsewhere, e.g. for correlation, scatter.
     def plot_correlation_heatmap(self):
         """Plots a correlation heatmap for numerical features."""
         if self.data is None:

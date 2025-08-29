@@ -1,7 +1,7 @@
 # project/preprocessing_utils.py
 
 from sklearn.preprocessing import OneHotEncoder, OrdinalEncoder
-from sklearn.preprocessing import StandardScaler # Good to include for numerical data
+from sklearn.preprocessing import StandardScaler 
 #from category_encoders import TargetEncoder
 
 
@@ -23,13 +23,12 @@ def get_onehot_encoder(options=None):
     if options is None:
         options = {}
 
-    # Default options for robustness in a pipeline
+    
     default_options = {
-        'handle_unknown': 'ignore',  # Important for handling new categories in test set
-        'sparse_output': False       # Often preferred for simpler integration with XGBoost/Pandas
+        'handle_unknown': 'ignore', 
+        'sparse_output': False      
     }
-    # Merge default options with user-provided options,
-    # user options will override defaults
+    
     encoder_options = {**default_options, **options}
 
     return OneHotEncoder(**encoder_options)
@@ -53,10 +52,10 @@ def get_ordinal_encoder(options=None):
     if options is None:
         options = {}
 
-    # Default options for robustness
+    
     default_options = {
-        'handle_unknown': 'use_encoded_value', # Recommended for unknown categories in test set
-        'unknown_value': -1                    # A common choice for unknown value
+        'handle_unknown': 'use_encoded_value', 
+        'unknown_value': -1                    
     }
     encoder_options = {**default_options, **options}
 
@@ -79,8 +78,3 @@ def get_standard_scaler(options=None):
     return StandardScaler(**options)
 
 
-# You can add more encoder-related utility functions here:
-# def get_target_encoder(options=None):
-#    if options is None:
-#        options = {}
-#    return TargetEncoder(**options)

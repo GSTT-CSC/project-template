@@ -3,8 +3,7 @@ import os
 import configparser
 import json # Used for comparison with json.loads output
 
-# Adjust the import path to correctly find parse_config.py
-# Assuming tests/ is at the same level as project/
+
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from project.utils.parse_config import (

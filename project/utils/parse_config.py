@@ -1,6 +1,6 @@
 import configparser
 import os
-import json # Import json for parsing dictionary strings from config
+import json 
 
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from xgboost import XGBClassifier, XGBRegressor
@@ -36,7 +36,7 @@ def get_model_and_hyperparams(config):
         ValueError: If an unsupported model name is specified or linear regression
                     is applied to a non-regression task.
     """
-    model_name = config["model"]["model_name"].strip() # Ensure no leading/trailing whitespace
+    model_name = config["model"]["model_name"].strip() 
     task = config["model"]["task"].strip()
 
     if model_name == "random_forest":
@@ -76,7 +76,6 @@ def get_data_config(config):
         "columns_to_drop": [col.strip() for col in config["data"].get("columns_to_drop", "").split(',') if col.strip()]
     }
 
-    # Parse JSON strings for categorical and numerical column settings
     if "categorical_columns_settings" in config["data"]:
         try:
             data_config["categorical_columns_settings"] = json.loads(config["data"]["categorical_columns_settings"])
@@ -106,10 +105,10 @@ def get_grid_search_config(config):
         "n_trials": config["training"].getint("n_trials"),
         "timeout": config["training"].getint("timeout"),
         "optuna_direction": config["training"]["optuna_direction"],
-        "use_kfold_cv": config["training"].getboolean("use_kfold_cv"), # Added this for consistency with training section
-        "n_splits": config["training"].getint("n_splits"), # Added this for consistency with training section
-        "shuffle_cv": config["training"].getboolean("shuffle_cv"), # Added this for consistency with training section
-        "random_state_cv": config["training"].getint("random_state_cv") # Added this for consistency with training section
+        "use_kfold_cv": config["training"].getboolean("use_kfold_cv"), 
+        "n_splits": config["training"].getint("n_splits"),
+        "shuffle_cv": config["training"].getboolean("shuffle_cv"), 
+        "random_state_cv": config["training"].getint("random_state_cv") 
     }
 
 
@@ -127,13 +126,10 @@ def get_grid_search_params(config, model_name):
     Raises:
         ValueError: If JSON parsing for the grid parameters fails.
     """
-    section_name = f"grid_params.{model_name.strip()}" # Ensure no whitespace
+    section_name = f"grid_params.{model_name.strip()}" 
     if section_name in config:
         params_string = config[section_name]["params"]
         try:
-            # Using eval() can be risky, but common for parameter grids where input is controlled.
-            # Alternatively, if your grid is strict JSON, use json.loads.
-            # For Python dicts with None/tuples, eval is often necessary.
             return eval(params_string)
         except Exception as e:
             raise ValueError(
@@ -141,8 +137,6 @@ def get_grid_search_params(config, model_name):
                 f"Ensure 'params' value is a valid Python dictionary string. String: {params_string}"
             )
     else:
-        # Return empty dict if no grid params are defined for this model,
-        # train.py should handle if use_grid_search is True but params are empty.
         return {}
 
 

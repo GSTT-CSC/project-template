@@ -129,3 +129,6 @@ mlruns/
 #git hooks
 .files_exceptions
 .sensitive_exceptions
+
+#models
+.pkl
