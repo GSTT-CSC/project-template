@@ -94,6 +94,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+structdata2/
+structdata-venv/
 
 # Spyder project settings
 .spyderproject
