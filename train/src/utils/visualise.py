@@ -53,9 +53,9 @@ class DataVisualizer:
             else:
                 # Fallback to non-interactive
                 matplotlib.use('Agg')
-                print("ℹ️ Using non-interactive backend. Plots will be saved only.")
+                print("ℹUsing non-interactive backend. Plots will be saved only.")
         except Exception:
-            print("⚠️ Backend setup failed. Using default.")
+            print(" Backend setup failed. Using default.")
     
     def plot_distributions(self, data: pd.DataFrame, columns: Optional[List[str]] = None,
                           target_column: Optional[str] = None, 
@@ -259,7 +259,7 @@ class DataVisualizer:
         numerical_data = data.select_dtypes(include=[np.number])
         
         if numerical_data.empty:
-            print("⚠️ No numerical columns for correlation analysis")
+            print(" No numerical columns for correlation analysis")
             return
         
         # Calculate correlation matrix
@@ -286,7 +286,7 @@ class DataVisualizer:
         missing_data = data.isnull()
         
         if not missing_data.any().any():
-            print("✅ No missing data to visualize")
+            print(" No missing data to visualize")
             return
         
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
@@ -327,7 +327,7 @@ class DataVisualizer:
         numerical_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         
         if not numerical_cols:
-            print("⚠️ No numerical columns for outlier analysis")
+            print(" No numerical columns for outlier analysis")
             return
         
         n_cols = min(3, len(numerical_cols))
@@ -381,7 +381,7 @@ class DataVisualizer:
         self._save_and_show(fig, save_name)
         
         # Print outlier summary
-        print("\n📊 OUTLIER ANALYSIS SUMMARY:")
+        print("\n OUTLIER ANALYSIS SUMMARY:")
         for col, info in outlier_summary.items():
             print(f"  {col}: {info['count']} outliers ({info['percentage']:.1f}%)")
     
@@ -416,14 +416,14 @@ class DataVisualizer:
         # Save figure
         save_path = self.output_dir / f"{save_name}.png"
         fig.savefig(save_path, dpi=self.dpi, bbox_inches='tight', facecolor='white')
-        print(f"💾 Plot saved: {save_path}")
+        print(f"Plot saved: {save_path}")
         
         # Try to display
         try:
             plt.show(block=False)
             print("👁️  Plot displayed")
         except Exception:
-            print("📊 Plot saved (display not available)")
+            print("Plot saved (display not available)")
         
         plt.close(fig)
 
@@ -621,12 +621,12 @@ class ModelVisualizer:
         """Save figure and optionally display it."""
         save_path = self.output_dir / f"{save_name}.png"
         fig.savefig(save_path, dpi=self.dpi, bbox_inches='tight', facecolor='white')
-        print(f"💾 Model plot saved: {save_path}")
+        print(f" Model plot saved: {save_path}")
         
         try:
             plt.show(block=False)
-            print("👁️  Model plot displayed")
+            print("Model plot displayed")
         except Exception:
-            print("📊 Model plot saved (display not available)")
+            print("Model plot saved (display not available)")
         
         plt.close(fig)
