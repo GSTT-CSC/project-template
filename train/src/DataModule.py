@@ -1,295 +1,432 @@
 import pandas as pd
+import numpy as np
+from typing import Tuple, List, Dict, Any, Optional, Union
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder, OrdinalEncoder, LabelEncoder
+from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
-import numpy as np
 
 
 class DataModule:
     """
-    A class to handle data loading, preprocessing, splitting, and visualization.
+    A comprehensive class to handle data loading, preprocessing, splitting, and visualization
+    for machine learning projects.
     """
-    def __init__(self, data_path, target_column, columns_to_drop=None,
-                 numerical_cols=None, categorical_cols=None, text_cols=None,
-                 preprocessor_settings=None, visualise=False, check_imbalance=False,
-                 test_size=0.2, stratify=False, random_state=42):
+    
+    def __init__(self, data_path: str, target_column: str, columns_to_drop: Optional[List[str]] = None,
+                 preprocessor_settings: Optional[Dict[str, Any]] = None, visualise: bool = False,
+                 check_imbalance: bool = False, test_size: float = 0.2, stratify: bool = False,
+                 random_state: int = 42):
+        """
+        Initialize DataModule.
+        
+        Args:
+            data_path: Path to the CSV data file
+            target_column: Name of the target column
+            columns_to_drop: List of columns to drop
+            preprocessor_settings: Settings for preprocessing pipelines
+            visualise: Whether to generate visualizations
+            check_imbalance: Whether to check class imbalance
+            test_size: Proportion of data for testing
+            stratify: Whether to use stratified splitting
+            random_state: Random state for reproducibility
+        """
         self.data_path = data_path
         self.target_column = target_column
-        self.columns_to_drop = columns_to_drop if columns_to_drop is not None else []
-        self.numerical_cols = numerical_cols
-        self.categorical_cols = categorical_cols
-        self.text_cols = text_cols
-        self.preprocessor_settings = preprocessor_settings if preprocessor_settings is not None else {}
+        self.columns_to_drop = columns_to_drop or []
+        self.preprocessor_settings = preprocessor_settings or {}
         self.visualise = visualise
         self.check_imbalance = check_imbalance
         self.test_size = test_size
         self.stratify = stratify
         self.random_state = random_state
-
-        self.data = None
-        self.preprocessor = None
-        self.numerical_features = []
-        self.categorical_features = []
-        self.text_features = [] 
-
-    def load_and_prepare(self):
-        """
-        Loads data from the specified path, drops columns, infers types,
-        sets up the preprocessor, and optionally performs imbalance check and visualization.
-        """
-        try:
-            self.data = pd.read_csv(self.data_path)
-            print(f"Data loaded successfully from {self.data_path}. Shape: {self.data.shape}")
-        except FileNotFoundError:
-            raise FileNotFoundError(f"Data file not found at {self.data_path}")
-        except Exception as e:
-            raise IOError(f"Error loading data from {self.data_path}: {e}")
-
-        if self.columns_to_drop:
-            initial_columns = set(self.data.columns)
-            self.data = self.data.drop(columns=self.columns_to_drop, errors='ignore')
-            dropped_actual = initial_columns - set(self.data.columns)
-            if dropped_actual:
-                print(f"Dropped columns: {', '.join(dropped_actual)}")
-            else:
-                print("No specified columns were dropped (they might not exist).")
-
-        if self.target_column not in self.data.columns:
-            raise ValueError(f"Target column '{self.target_column}' not found in the data.")
         
-        X = self.data.drop(columns=[self.target_column])
-        y = self.data[self.target_column]
+        # Internal attributes
+        self.data: Optional[pd.DataFrame] = None
+        self.preprocessor: Optional[ColumnTransformer] = None
+        self.numerical_features: List[str] = []
+        self.categorical_features: List[str] = []
 
-        self.infer_column_types(X)
-
+    def load_and_prepare(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """
+        Load data, prepare features, and set up preprocessing pipeline.
         
-        self.setup_preprocessor()
-
+        Returns:
+            tuple: Features (X) and target (y) DataFrames
+        """
+        # Load data
+        self._load_data()
+        
+        # Drop specified columns
+        self._drop_columns()
+        
+        # Validate target column
+        self._validate_target_column()
+        
+        # Split features and target
+        X, y = self._split_features_target()
+        
+        # Infer column types
+        self._infer_column_types(X)
+        
+        # Setup preprocessor
+        self._setup_preprocessor()
+        
+        # Optional operations
         if self.visualise:
             self.visualize_column_distributions()
         
         if self.check_imbalance:
-            print(f"Checking target class imbalance for '{self.target_column}'...")
-            self.check_imbalance_and_report(y)
-
+            self._check_target_imbalance(y)
+        
         return X, y
 
-    def infer_column_types(self, X):
-        """
-        Infers numerical and categorical column types from the DataFrame X.
-        Populates self.numerical_features and self.categorical_features.
-        """
-        self.numerical_features = X.select_dtypes(include=np.number).columns.tolist()
-        self.categorical_features = X.select_dtypes(include='object').columns.tolist()
-        print(f"Inferred numerical features: {self.numerical_features}")
-        print(f"Inferred categorical features: {self.categorical_features}")
+    def _load_data(self) -> None:
+        """Load data from CSV file."""
+        try:
+            self.data = pd.read_csv(self.data_path)
+            print(f"Data loaded successfully. Shape: {self.data.shape}")
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Data file not found: {self.data_path}")
+        except Exception as e:
+            raise IOError(f"Error loading data: {e}")
 
-    def setup_preprocessor(self):
-        """
-        Sets up the ColumnTransformer based on inferred column types and
-        preprocessor_settings. Ensures self.preprocessor is always a ColumnTransformer object.
-        """
-        if self.data is None: 
-            print("Warning: Data not loaded. Preprocessor setup might be incomplete without full data context.")
+    def _drop_columns(self) -> None:
+        """Drop specified columns from the dataset."""
+        if not self.columns_to_drop:
+            return
             
-        if self.data is not None and not self.numerical_features and not self.categorical_features:
-            temp_X = self.data.drop(columns=[self.target_column], errors='ignore')
-            self.infer_column_types(temp_X)
-
-        active_transformers = []
-
-        # Numerical Pipeline
-        numerical_pipeline_steps = []
-        
-        if 'numerical' in self.preprocessor_settings:
+        initial_columns = set(self.data.columns)
+        # Handle case where columns_to_drop might be a single string
+        if isinstance(self.columns_to_drop, str):
+            self.columns_to_drop = [col.strip() for col in self.columns_to_drop.split(',')]
             
-            for setting_name, setting_details in self.preprocessor_settings['numerical'].items():
-                if setting_details.get('scaler') == 'standard': 
-                    numerical_pipeline_steps.append((f'{setting_name}_scaler', StandardScaler()))
-                
+        self.data = self.data.drop(columns=self.columns_to_drop, errors='ignore')
+        dropped_actual = initial_columns - set(self.data.columns)
         
-        if self.numerical_features and numerical_pipeline_steps:
-            active_transformers.append(('num_pipeline', Pipeline(numerical_pipeline_steps), self.numerical_features))
+        if dropped_actual:
+            print(f" Dropped columns: {', '.join(sorted(dropped_actual))}")
 
+    def _validate_target_column(self) -> None:
+        """Validate that target column exists in data."""
+        if self.target_column not in self.data.columns:
+            raise ValueError(f"Target column '{self.target_column}' not found in data")
 
-        # Categorical Pipeline
-        categorical_pipeline_steps = []
+    def _split_features_target(self) -> Tuple[pd.DataFrame, pd.Series]:
+        """Split data into features and target."""
+        X = self.data.drop(columns=[self.target_column])
+        y = self.data[self.target_column]
+        return X, y
+
+    def _infer_column_types(self, X: pd.DataFrame) -> None:
+        """Infer numerical and categorical column types."""
+        self.numerical_features = X.select_dtypes(include=[np.number]).columns.tolist()
+        self.categorical_features = X.select_dtypes(include=['object', 'category']).columns.tolist()
         
-        if 'categorical' in self.preprocessor_settings:
-            
-            for setting_name, setting_details in self.preprocessor_settings['categorical'].items():
-                if setting_details.get('encoder') == 'onehot': 
-                    
-                    encoder_options = setting_details.get('encoder_options', {})
-                    categorical_pipeline_steps.append((f'{setting_name}_encoder', OneHotEncoder(handle_unknown='ignore', **encoder_options)))
-                elif setting_details.get('encoder') == 'ordinal': 
-                    encoder_options = setting_details.get('encoder_options', {})
-                    categorical_pipeline_steps.append((f'{setting_name}_encoder', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-1, **encoder_options)))
-                else:
-                    print(f"Warning: Unsupported encoder type '{setting_details.get('encoder')}' for column '{setting_name}'. Skipping encoder for this column.")
+        print(f" Numerical features ({len(self.numerical_features)}): {self.numerical_features}")
+        print(f" Categorical features ({len(self.categorical_features)}): {self.categorical_features}")
+
+    def _setup_preprocessor(self) -> None:
+        """Setup the preprocessing pipeline using ColumnTransformer."""
+        transformers = []
         
-        if self.categorical_features and categorical_pipeline_steps:
-            active_transformers.append(('cat_pipeline', Pipeline(categorical_pipeline_steps), self.categorical_features))
-
-
-        if not active_transformers:
-            print("No active transformers configured for any columns. Creating a passthrough preprocessor.")
-            self.preprocessor = ColumnTransformer(transformers=[], remainder='passthrough')
+        # Numerical preprocessing
+        if self.numerical_features:
+            num_pipeline = self._create_numerical_pipeline()
+            if num_pipeline.steps:  # Only add if pipeline has steps
+                transformers.append(('num', num_pipeline, self.numerical_features))
+        
+        # Categorical preprocessing
+        if self.categorical_features:
+            cat_pipeline = self._create_categorical_pipeline()
+            if cat_pipeline.steps:  # Only add if pipeline has steps
+                transformers.append(('cat', cat_pipeline, self.categorical_features))
+        
+        # Create ColumnTransformer
+        if transformers:
+            self.preprocessor = ColumnTransformer(
+                transformers=transformers,
+                remainder='passthrough',
+                sparse_threshold=0
+            )
+            print("Preprocessor created with active transformers")
         else:
-            self.preprocessor = ColumnTransformer(transformers=active_transformers, remainder='passthrough')
-            print("ColumnTransformer created with specified pipelines.")
+            # Fallback: passthrough preprocessor
+            self.preprocessor = ColumnTransformer(
+                transformers=[],
+                remainder='passthrough',
+                sparse_threshold=0
+            )
+            print("No active transformers configured, using passthrough")
 
-    def create_and_fit_preprocessor(self, X):
+    def _create_numerical_pipeline(self) -> Pipeline:
+        """Create numerical preprocessing pipeline."""
+        steps = []
+        
+        # Get numerical settings from config
+        num_settings = self.preprocessor_settings.get('numerical', {})
+        
+        # Add imputation step if specified
+        imputation_methods = []
+        scaling_methods = []
+        
+        for col_name, settings in num_settings.items():
+            if col_name in self.numerical_features:
+                if 'imputer' in settings:
+                    strategy = 'median' if settings['imputer'] == 'median' else 'mean'
+                    if strategy not in imputation_methods:
+                        imputation_methods.append(strategy)
+                
+                if 'scaler' in settings:
+                    scaler_type = settings['scaler']
+                    if scaler_type not in scaling_methods:
+                        scaling_methods.append(scaler_type)
+        
+        # Add imputer (use median as default if any numerical columns need imputation)
+        if imputation_methods or any('imputer' in settings for settings in num_settings.values()):
+            strategy = imputation_methods[0] if imputation_methods else 'median'
+            steps.append(('imputer', SimpleImputer(strategy=strategy)))
+        
+        # Add scaler (use StandardScaler as default if any numerical columns need scaling)
+        if scaling_methods or any('scaler' in settings for settings in num_settings.values()):
+            scaler_type = scaling_methods[0] if scaling_methods else 'standard'
+            if scaler_type == 'standard':
+                steps.append(('scaler', StandardScaler()))
+            elif scaler_type == 'minmax':
+                steps.append(('scaler', MinMaxScaler()))
+        
+        return Pipeline(steps)
+
+    def _create_categorical_pipeline(self) -> Pipeline:
+        """Create categorical preprocessing pipeline."""
+        steps = []
+        
+        # Get categorical settings from config
+        cat_settings = self.preprocessor_settings.get('categorical', {})
+        
+        # Add imputation step if specified
+        imputation_needed = any('imputer' in settings for settings in cat_settings.values())
+        if imputation_needed:
+            steps.append(('imputer', SimpleImputer(strategy='most_frequent')))
+        
+        # Add encoding step
+        encoding_methods = []
+        encoder_options = {}
+        
+        for col_name, settings in cat_settings.items():
+            if col_name in self.categorical_features and 'encoder' in settings:
+                encoder_type = settings['encoder']
+                if encoder_type not in encoding_methods:
+                    encoding_methods.append(encoder_type)
+                    if 'encoder_options' in settings:
+                        encoder_options[encoder_type] = settings['encoder_options']
+        
+        # Use OneHot as default if any categorical columns need encoding
+        if encoding_methods or self.categorical_features:
+            encoder_type = encoding_methods[0] if encoding_methods else 'onehot'
+            options = encoder_options.get(encoder_type, {})
+            
+            if encoder_type == 'onehot':
+                # Set default options for OneHotEncoder
+                default_options = {'handle_unknown': 'ignore', 'sparse_output': False}
+                default_options.update(options)
+                steps.append(('encoder', OneHotEncoder(**default_options)))
+            elif encoder_type == 'ordinal':
+                default_options = {'handle_unknown': 'use_encoded_value', 'unknown_value': -1}
+                default_options.update(options)
+                steps.append(('encoder', OrdinalEncoder(**default_options)))
+        
+        return Pipeline(steps)
+
+    def create_and_fit_preprocessor(self, X: pd.DataFrame) -> ColumnTransformer:
         """
-        Fits the preprocessor (ColumnTransformer) on the provided data.
-        Returns the fitted preprocessor.
-        Assumes self.preprocessor has already been set up in setup_preprocessor().
+        Fit the preprocessor on the provided data.
+        
+        Args:
+            X: Feature DataFrame to fit on
+            
+        Returns:
+            Fitted preprocessor
         """
         if self.preprocessor is None:
-            raise RuntimeError("Preprocessor has not been set up. Call setup_preprocessor() first.")
+            raise RuntimeError("Preprocessor not set up. Call load_and_prepare() first.")
         
-        print("Fitting preprocessor...")
-        self.preprocessor = self.preprocessor.fit(X) 
+        print("Fitting preprocessor")
+        self.preprocessor.fit(X)
         return self.preprocessor
 
-    def transform_data(self, X):
+    def transform_data(self, X: pd.DataFrame) -> np.ndarray:
         """
-        Transforms the data using the fitted preprocessor.
-        Assumes self.preprocessor has already been fitted.
+        Transform data using the fitted preprocessor.
+        
+        Args:
+            X: Data to transform
+            
+        Returns:
+            Transformed data array
         """
         if self.preprocessor is None:
-            raise RuntimeError("Preprocessor has not been set up. Call setup_preprocessor() first.")
-
-        print("Transforming data...")
+            raise RuntimeError("Preprocessor not set up. Call load_and_prepare() first.")
+        
         return self.preprocessor.transform(X)
 
-
-    def perform_train_test_split(self, X, y):
+    def perform_train_test_split(self, X: pd.DataFrame, y: pd.Series) -> Tuple[pd.DataFrame, pd.DataFrame, pd.Series, pd.Series]:
         """
-        Performs train-test split on the data.
+        Perform train-test split.
+        
+        Args:
+            X: Features
+            y: Target
+            
+        Returns:
+            X_train, X_test, y_train, y_test
         """
-        if self.stratify:
-            print(f"Performing stratified train-test split on '{self.target_column}'.")
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=self.test_size, random_state=self.random_state, stratify=y
-            )
-        else:
-            print("Performing non-stratified train-test split.")
-            X_train, X_test, y_train, y_test = train_test_split(
-                X, y, test_size=self.test_size, random_state=self.random_state
-            )
-        print(f"Train set shape: {X_train.shape}, Test set shape: {X_test.shape}")
+        stratify_param = y if self.stratify else None
+        
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y,
+            test_size=self.test_size,
+            random_state=self.random_state,
+            stratify=stratify_param
+        )
+        
+        split_type = "stratified" if self.stratify else "random"
+        print(f"{split_type.title()} train-test split completed")
+        print(f"  Train: {X_train.shape[0]} samples, Test: {X_test.shape[0]} samples")
+        
         return X_train, X_test, y_train, y_test
 
-    def visualize_column_distributions(self):
-        """
-        Visualizes distributions of numerical and categorical columns.
-        """
+    def visualize_column_distributions(self) -> None:
+        """Generate distribution plots for numerical and categorical columns."""
         if self.data is None:
-            print("Data not loaded. Cannot visualize distributions.")
+            print("Data not loaded. Cannot generate visualizations.")
             return
-
-        print("\n--- Generating Column Distribution Visualizations ---")
-
-        # Numerical columns
-        if self.numerical_features:
-            print("Displaying distributions for numerical columns...")
-            for col in self.numerical_features:
-                plt.figure(figsize=(8, 6))
-                sns.histplot(self.data[col], kde=True)
-                plt.title(f'Distribution of {col}')
-                plt.xlabel(col)
-                plt.ylabel('Frequency')
-                plt.grid(True, linestyle='--', alpha=0.6)
-                plt.show()
-
-        # Categorical columns
-        if self.categorical_features:
-            print("Displaying distributions for categorical columns...")
-            for col in self.categorical_features:
-                plt.figure(figsize=(8, 6))
-                sns.countplot(data=self.data, x=col, hue=col, palette='viridis', legend=False)
-                plt.title(f'Count of {col}')
-                plt.xlabel(col)
-                plt.ylabel('Count')
-                plt.xticks(rotation=45, ha='right')
-                plt.grid(axis='y', linestyle='--', alpha=0.6)
-                plt.tight_layout()
-                plt.show()
         
-        print("Column distribution visualizations complete.")
+        print("\n Generating distribution visualizations...")
+        
+        # Numerical distributions
+        if self.numerical_features:
+            n_cols = min(3, len(self.numerical_features))
+            n_rows = (len(self.numerical_features) + n_cols - 1) // n_cols
+            
+            fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows))
+            axes = axes.flatten() if n_rows * n_cols > 1 else [axes]
+            
+            for i, col in enumerate(self.numerical_features):
+                sns.histplot(data=self.data, x=col, kde=True, ax=axes[i])
+                axes[i].set_title(f'Distribution of {col}')
+                axes[i].grid(True, alpha=0.3)
+            
+            # Hide empty subplots
+            for i in range(len(self.numerical_features), len(axes)):
+                axes[i].set_visible(False)
+            
+            plt.tight_layout()
+            plt.show()
+        
+        # Categorical distributions
+        if self.categorical_features:
+            n_cols = min(2, len(self.categorical_features))
+            n_rows = (len(self.categorical_features) + n_cols - 1) // n_cols
+            
+            fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4 * n_rows))
+            axes = axes.flatten() if n_rows * n_cols > 1 else [axes]
+            
+            for i, col in enumerate(self.categorical_features):
+                sns.countplot(data=self.data, x=col, ax=axes[i])
+                axes[i].set_title(f'Distribution of {col}')
+                axes[i].tick_params(axis='x', rotation=45)
+                axes[i].grid(True, alpha=0.3)
+            
+            # Hide empty subplots
+            for i in range(len(self.categorical_features), len(axes)):
+                axes[i].set_visible(False)
+            
+            plt.tight_layout()
+            plt.show()
 
-    def check_imbalance_and_report(self, y):
-        """
-        Checks for target class imbalance and prints a report.
-        """
-        class_counts = y.value_counts()
+    def _check_target_imbalance(self, y: pd.Series) -> None:
+        """Check and report target class imbalance."""
+        class_counts = y.value_counts().sort_index()
         total_samples = len(y)
-        print(f"Class distribution for '{self.target_column}':")
+        
+        print(f"\n Target variable '{self.target_column}' distribution:")
         for class_name, count in class_counts.items():
             percentage = (count / total_samples) * 100
-            print(f"  {class_name}: {count} ({percentage:.2f}%)")
-
-        min_class_percentage = class_counts.min() / total_samples * 100
-        if min_class_percentage < 10: 
-            print(f"Warning: Potential class imbalance detected. Smallest class has {min_class_percentage:.2f}% of samples.")
+            print(f"  {class_name}: {count:,} samples ({percentage:.1f}%)")
+        
+        # Check for significant imbalance
+        min_percentage = (class_counts.min() / total_samples) * 100
+        if min_percentage < 10:
+            print(f" Warning: Class imbalance detected! Smallest class: {min_percentage:.1f}%")
+            print("  Consider using stratified sampling or class balancing techniques.")
 
     @staticmethod
-    def get_feature_names_after_preprocessing(fitted_preprocessor, initial_feature_names):
+    def get_feature_names_after_preprocessing(fitted_preprocessor: ColumnTransformer, 
+                                            initial_feature_names: List[str]) -> List[str]:
         """
         Get feature names after preprocessing.
-        Assumes ColumnTransformer is used and has get_feature_names_out.
-        """
-        if isinstance(fitted_preprocessor, ColumnTransformer) and \
-           not fitted_preprocessor.transformers and \
-           fitted_preprocessor.remainder == 'passthrough':
-            print("Preprocessor is a passthrough with no active transformers. Returning initial feature names.")
-            return initial_feature_names
+        
+        Args:
+            fitted_preprocessor: Fitted ColumnTransformer
+            initial_feature_names: Original feature names
             
-        if hasattr(fitted_preprocessor, 'get_feature_names_out'):
-            return fitted_preprocessor.get_feature_names_out(initial_feature_names)
-        else:
-            print("Warning: Preprocessor does not have 'get_feature_names_out'. Cannot determine feature names automatically.")
+        Returns:
+            List of feature names after preprocessing
+        """
+        try:
+            if hasattr(fitted_preprocessor, 'get_feature_names_out'):
+                return fitted_preprocessor.get_feature_names_out(initial_feature_names).tolist()
+            else:
+                print("⚠ Cannot determine feature names after preprocessing")
+                return [f'feature_{i}' for i in range(fitted_preprocessor.transform(
+                    pd.DataFrame(columns=initial_feature_names)).shape[1])]
+        except Exception as e:
+            print(f"⚠ Error getting feature names: {e}")
             return []
 
-    def plot_correlation_heatmap(self):
-        """Plots a correlation heatmap for numerical features."""
-        if self.data is None:
-            print("Data not loaded. Cannot plot correlation heatmap.")
+    def plot_correlation_heatmap(self) -> None:
+        """Plot correlation heatmap for numerical features."""
+        if self.data is None or not self.numerical_features:
+            print("⚠ No numerical features available for correlation analysis")
             return
         
-        if not self.numerical_features:
-            print("No numerical features to plot correlation for.")
-            return
-
         plt.figure(figsize=(10, 8))
-        sns.heatmap(self.data[self.numerical_features].corr(), annot=True, cmap='coolwarm', fmt=".2f")
-        plt.title('Correlation Heatmap of Numerical Features')
-        plt.show()
-
-    def plot_scatter(self, x_col, y_col, hue_col=None):
-        """Plots a scatter plot for two numerical columns, optionally with a hue based on a third column."""
-        if self.data is None:
-            print("Data not loaded. Cannot plot scatter plot.")
-            return
-
-        if x_col not in self.data.columns or y_col not in self.data.columns:
-            print(f"Error: '{x_col}' or '{y_col}' not found in data for scatter plot.")
-            return
+        correlation_matrix = self.data[self.numerical_features].corr()
         
-        if hue_col and hue_col not in self.data.columns:
-             print(f"Warning: Hue column '{hue_col}' not found in data. Plotting without hue.")
-             hue_col = None
-
-        plt.figure(figsize=(10, 7))
-        sns.scatterplot(data=self.data, x=x_col, y=y_col, hue=hue_col)
-        plt.title(f'Scatter Plot of {x_col} vs {y_col}')
-        plt.xlabel(x_col)
-        plt.ylabel(y_col)
-        if hue_col:
-            plt.legend(title=hue_col)
-        plt.grid(True, linestyle='--', alpha=0.6)
+        sns.heatmap(correlation_matrix, 
+                   annot=True, 
+                   cmap='coolwarm', 
+                   center=0,
+                   fmt='.2f',
+                   square=True)
+        plt.title('Feature Correlation Heatmap')
+        plt.tight_layout()
         plt.show()
+
+    def get_data_summary(self) -> Dict[str, Any]:
+        """
+        Get comprehensive data summary.
+        
+        Returns:
+            Dictionary containing data summary statistics
+        """
+        if self.data is None:
+            return {}
+        
+        summary = {
+            'shape': self.data.shape,
+            'columns': self.data.columns.tolist(),
+            'numerical_features': self.numerical_features,
+            'categorical_features': self.categorical_features,
+            'missing_values': self.data.isnull().sum().to_dict(),
+            'dtypes': self.data.dtypes.to_dict()
+        }
+        
+        if self.target_column in self.data.columns:
+            summary['target_distribution'] = self.data[self.target_column].value_counts().to_dict()
+        
+        return summary

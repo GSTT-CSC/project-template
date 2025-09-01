@@ -1,225 +1,344 @@
+#!/usr/bin/env python3
+"""
+Training script for structured data ML models.
+Supports various models, cross-validation, and MLflow logging.
+"""
+
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.append(str(Path(__file__).parent.parent))
+
+import json
+import joblib
+import numpy as np
+import pandas as pd
+from typing import Dict, Any, Tuple, Optional
 
 import mlflow
-import joblib
-import pandas as pd
-from sklearn.metrics import classification_report, mean_squared_error, accuracy_score
-from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
-from src.utils.parse_config import load_config, get_model_and_hyperparams, get_data_config, get_logging_config, get_training_config
-from src.DataModule import DataModule
-import numpy as np
+from sklearn.metrics import (
+    classification_report, accuracy_score, f1_score, precision_score, recall_score,
+    mean_squared_error, mean_absolute_error, r2_score
+)
+from sklearn.model_selection import KFold, StratifiedKFold, cross_val_score
 from sklearn.preprocessing import LabelEncoder
-import optuna
+
+from src.utils.parse_config import (
+    load_config, get_model_and_hyperparams, get_data_config, 
+    get_logging_config, get_training_config, validate_config
+)
+from src.DataModule import DataModule
 
 
-def objective(trial, model_class, model_name, task, X_raw, y, fitted_preprocessor_global):
-    """
-    Optuna objective function for a single trial evaluation using a simple train-test split.
-    """
-    hyperparams = {}
-    if model_name == "random_forest":
-        hyperparams['n_estimators'] = trial.suggest_int('n_estimators', 50, 300)
-        hyperparams['max_depth'] = trial.suggest_int('max_depth', 5, 20, log=True)
-        hyperparams['min_samples_split'] = trial.suggest_int('min_samples_split', 2, 20)
-        hyperparams['min_samples_leaf'] = trial.suggest_int('min_samples_leaf', 1, 10)
-    elif model_name == "xgboost":
-        hyperparams['n_estimators'] = trial.suggest_int('n_estimators', 50, 300)
-        hyperparams['max_depth'] = trial.suggest_int('max_depth', 3, 10)
-        hyperparams['learning_rate'] = trial.suggest_float('learning_rate', 0.01, 0.3, log=True)
-        hyperparams['subsample'] = trial.suggest_float('subsample', 0.6, 1.0)
-        hyperparams['colsample_bytree'] = trial.suggest_float('colsample_bytree', 0.6, 1.0)
-    elif model_name == "linear_regression":
-        hyperparams['fit_intercept'] = trial.suggest_categorical('fit_intercept', [True, False])
-        pass
-
-    X_train_raw, X_test_raw, y_train, y_test = train_test_split(X_raw, y, test_size=0.2, random_state=42)
-
-    X_train_processed = fitted_preprocessor_global.transform(X_train_raw)
-    X_test_processed = fitted_preprocessor_global.transform(X_test_raw)
+class ModelTrainer:
+    """Handles model training, evaluation, and logging."""
     
-    try:
-        processed_feature_names = DataModule.get_feature_names_after_preprocessing(fitted_preprocessor_global, X_raw.columns.tolist())
-        X_train_final = pd.DataFrame(X_train_processed, columns=processed_feature_names, index=X_train_raw.index)
-        X_test_final = pd.DataFrame(X_test_processed, columns=processed_feature_names, index=X_test_raw.index)
-    except Exception:
-        X_train_final = pd.DataFrame(X_train_processed)
-        X_test_final = pd.DataFrame(X_test_processed)
+    def __init__(self, config_path: str):
+        """Initialize trainer with configuration."""
+        self.config_path = config_path
+        self.config = load_config(config_path)
+        
+        # Validate configuration
+        validate_config(self.config)
+        
+        # Extract configurations
+        self.model_class, self.initial_hyperparams = get_model_and_hyperparams(self.config)
+        self.model_name = self.config["model"]["model_name"]
+        self.task = self.config["model"]["task"]
+        self.data_config = get_data_config(self.config)
+        self.logging_config = get_logging_config(self.config)
+        self.training_config = get_training_config(self.config)
+        
+        # Initialize components
+        self.data_module = None
+        self.label_encoder = None
+        self.X = None
+        self.y = None
+        self.final_model = None
+        
+        print(f"Initializing {self.model_name} trainer for {self.task} task")
 
-    model = model_class(**hyperparams) 
-    model.fit(X_train_final, y_train) 
-    y_pred = model.predict(X_test_final)
+    def setup_mlflow(self) -> None:
+        """Setup MLflow tracking."""
+        mlflow.set_tracking_uri(self.logging_config['mlflow_tracking_uri'])
+        experiment_name = f"{self.model_name}_{self.task}_experiment"
+        mlflow.set_experiment(experiment_name)
+        print(f"MLflow experiment: {experiment_name}")
 
-    if task == "classification":
-        metric = accuracy_score(y_test, y_pred)
-    else:
-        metric = np.sqrt(mean_squared_error(y_test, y_pred))
+    def load_data(self) -> None:
+        """Load and prepare data using DataModule."""
+        print("\n Loading and preparing data")
+        
+        # Initialize DataModule
+        self.data_module = DataModule(
+            data_path=self.data_config['data_path'],
+            target_column=self.data_config['target_column'],
+            columns_to_drop=self.data_config.get('columns_to_drop', []),
+            preprocessor_settings=self.data_config.get('preprocessor_settings', {}),
+            visualise=self.data_config.get('visualise_data', False),
+            check_imbalance=self.data_config.get('check_imbalance', False),
+            test_size=self.data_config.get('test_size', 0.2),
+            stratify=self.data_config.get('stratify', False),
+            random_state=self.data_config.get('random_state', 42)
+        )
+        
+        # Load and prepare data
+        self.X, self.y = self.data_module.load_and_prepare()
+        
+        # Encode target for classification
+        if self.task == "classification":
+            self.label_encoder = LabelEncoder()
+            self.y = pd.Series(
+                self.label_encoder.fit_transform(self.y), 
+                index=self.y.index, 
+                name=self.y.name
+            )
+            print(f"Target encoded. Classes: {list(self.label_encoder.classes_)}")
 
-    return metric
+    def load_hyperparameters(self) -> Dict[str, Any]:
+        """Load hyperparameters from Optuna or use default."""
+        if self.training_config.get('use_optuna', False):
+            best_params_path = Path(f"models/best_params_{self.model_name}.json")
+            
+            if best_params_path.exists():
+                with open(best_params_path, 'r') as f:
+                    hyperparams = json.load(f)
+                print(f"Loaded optimized hyperparameters from {best_params_path}")
+                return hyperparams
+            else:
+                print(f"Optuna results not found at {best_params_path}")
+                print(" Using default hyperparameters. Run tune.py first for optimal results.")
+        
+        return self.initial_hyperparams
+
+    def perform_cross_validation(self, hyperparams: Dict[str, Any]) -> Dict[str, float]:
+        """Perform cross-validation and return metrics."""
+        print(f"\n Performing {self.training_config['n_splits']}-fold cross-validation")
+        
+        # Setup cross-validation
+        if self.task == "classification" and self.data_config.get('stratify', False):
+            cv = StratifiedKFold(
+                n_splits=self.training_config['n_splits'],
+                shuffle=self.training_config['shuffle_cv'],
+                random_state=self.training_config['random_state_cv']
+            )
+            print("  Using stratified K-fold")
+        else:
+            cv = KFold(
+                n_splits=self.training_config['n_splits'],
+                shuffle=self.training_config['shuffle_cv'],
+                random_state=self.training_config['random_state_cv']
+            )
+            print("  Using standard K-fold")
+        
+        # Fit preprocessor and transform data
+        fitted_preprocessor = self.data_module.create_and_fit_preprocessor(self.X)
+        X_processed = fitted_preprocessor.transform(self.X)
+        
+        # Create model
+        model = self.model_class(**hyperparams)
+        
+        # Perform cross-validation
+        if self.task == "classification":
+            cv_scores = cross_val_score(model, X_processed, self.y, cv=cv, scoring='accuracy')
+            metric_name = 'accuracy'
+        else:
+            cv_scores = cross_val_score(model, X_processed, self.y, cv=cv, scoring='neg_mean_squared_error')
+            cv_scores = np.sqrt(-cv_scores)  # Convert to RMSE
+            metric_name = 'rmse'
+        
+        cv_results = {
+            f'cv_mean_{metric_name}': cv_scores.mean(),
+            f'cv_std_{metric_name}': cv_scores.std(),
+            'cv_scores': cv_scores.tolist()
+        }
+        
+        print(f"  CV {metric_name}: {cv_results[f'cv_mean_{metric_name}']:.4f} ± {cv_results[f'cv_std_{metric_name}']:.4f}")
+        
+        return cv_results
+
+    def train_final_model(self, hyperparams: Dict[str, Any]) -> None:
+        """Train final model on all data."""
+        print(f"\n Training final {self.model_name} model")
+        
+        # Fit preprocessor and transform data
+        fitted_preprocessor = self.data_module.create_and_fit_preprocessor(self.X)
+        X_processed = fitted_preprocessor.transform(self.X)
+        
+        # Train final model
+        self.final_model = self.model_class(**hyperparams)
+        self.final_model.fit(X_processed, self.y)
+        
+        print("Final model training completed")
+        
+        # Store preprocessor with model for future use
+        self.final_model._preprocessor = fitted_preprocessor
+
+    def evaluate_holdout(self, hyperparams: Dict[str, Any]) -> Dict[str, float]:
+        """Evaluate model on holdout test set."""
+        print(f"\n Evaluating on holdout test set.")
+        
+        # Split data
+        X_train, X_test, y_train, y_test = self.data_module.perform_train_test_split(self.X, self.y)
+        
+        # Fit preprocessor on training data only
+        fitted_preprocessor = self.data_module.create_and_fit_preprocessor(X_train)
+        
+        # Transform data
+        X_train_processed = fitted_preprocessor.transform(X_train)
+        X_test_processed = fitted_preprocessor.transform(X_test)
+        
+        # Train model
+        model = self.model_class(**hyperparams)
+        model.fit(X_train_processed, y_train)
+        
+        # Make predictions
+        y_pred = model.predict(X_test_processed)
+        
+        # Calculate metrics
+        if self.task == "classification":
+            metrics = {
+                'holdout_accuracy': accuracy_score(y_test, y_pred),
+                'holdout_f1_weighted': f1_score(y_test, y_pred, average='weighted'),
+                'holdout_precision_weighted': precision_score(y_test, y_pred, average='weighted'),
+                'holdout_recall_weighted': recall_score(y_test, y_pred, average='weighted')
+            }
+            print(f"  Holdout accuracy: {metrics['holdout_accuracy']:.4f}")
+            print(f"  Holdout F1 (weighted): {metrics['holdout_f1_weighted']:.4f}")
+        else:
+            mse = mean_squared_error(y_test, y_pred)
+            metrics = {
+                'holdout_rmse': np.sqrt(mse),
+                'holdout_mae': mean_absolute_error(y_test, y_pred),
+                'holdout_r2': r2_score(y_test, y_pred)
+            }
+            print(f"  Holdout RMSE: {metrics['holdout_rmse']:.4f}")
+            print(f"  Holdout R²: {metrics['holdout_r2']:.4f}")
+        
+        return metrics
+
+    def save_model(self) -> Optional[str]:
+        """Save the trained model."""
+        if not self.logging_config.get('save_model', False) or self.final_model is None:
+            return None
+        
+        print(f"\n Saving model")
+        
+        # Create output directory
+        output_dir = Path(self.logging_config['model_output_path'])
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Save model
+        model_filename = f"{self.model_name}_{self.task}_model.pkl"
+        model_path = output_dir / model_filename
+        
+        # Create model package with preprocessor and label encoder
+        model_package = {
+            'model': self.final_model,
+            'preprocessor': getattr(self.final_model, '_preprocessor', None),
+            'label_encoder': self.label_encoder,
+            'feature_names': self.X.columns.tolist(),
+            'model_name': self.model_name,
+            'task': self.task,
+            'target_column': self.data_config['target_column']
+        }
+        
+        joblib.dump(model_package, model_path)
+        print(f"Model saved to: {model_path}")
+        
+        return str(model_path)
+
+    def run(self) -> None:
+        """Run the complete training pipeline."""
+        try:
+            # Setup MLflow
+            self.setup_mlflow()
+            
+            with mlflow.start_run(run_name=f"{self.model_name}_{self.task}_training"):
+                # Load data
+                self.load_data()
+                
+                # Load hyperparameters
+                hyperparams = self.load_hyperparameters()
+                
+                # Log parameters
+                mlflow.log_params({
+                    'model_name': self.model_name,
+                    'task': self.task,
+                    **hyperparams,
+                    **{k: v for k, v in self.data_config.items() if not isinstance(v, dict)},
+                    **self.training_config
+                })
+                
+                # Log additional info
+                if self.label_encoder is not None:
+                    mlflow.log_param('target_classes', list(self.label_encoder.classes_))
+                
+                all_metrics = {}
+                
+                # Cross-validation or holdout evaluation
+                if self.training_config.get('use_kfold_cv', True):
+                    cv_metrics = self.perform_cross_validation(hyperparams)
+                    all_metrics.update(cv_metrics)
+                    
+                    # Train final model on all data
+                    self.train_final_model(hyperparams)
+                else:
+                    # Use holdout validation
+                    holdout_metrics = self.evaluate_holdout(hyperparams)
+                    all_metrics.update(holdout_metrics)
+                    
+                    # Train final model on all data
+                    self.train_final_model(hyperparams)
+                
+                # Log metrics
+                for metric_name, metric_value in all_metrics.items():
+                    if isinstance(metric_value, (int, float)):
+                        mlflow.log_metric(metric_name, metric_value)
+                
+                # Save model
+                model_path = self.save_model()
+                if model_path:
+                    mlflow.log_artifact(model_path)
+                
+                print(f"\nTraining completed successfully.")
+                print(f" MLflow run: {mlflow.active_run().info.run_id}")
+                
+        except Exception as e:
+            print(f"\n Training failed: {str(e)}")
+            raise
+        finally:
+            mlflow.end_run()
 
 
 def main():
-    # --- 1. Load Configuration ---
-    config_path = "config/local_config.cfg"
-    config = load_config(config_path)
+    """Main training function."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Train ML model on structured data')
+    parser.add_argument(
+        '--config', 
+        default='/Users/ksonar/Documents/Technical/project-template/train/config/local_config.cfg',
+        help='Path to configuration file'
+    )
+    
+    args = parser.parse_args()
+    
+    # Handle relative paths
+    config_path = args.config
+    if not Path(config_path).is_absolute():
+        config_path = Path(__file__).parent / config_path
+    
+    if not Path(config_path).exists():
+        print(f" Configuration file not found: {config_path}")
+        sys.exit(1)
+    
+    # Create and run trainer
+    trainer = ModelTrainer(str(config_path))
+    trainer.run()
 
-    model_class, model_hyperparams_initial = get_model_and_hyperparams(config)
-    model_name = config["model"]["model_name"]
-    task = config["model"]["task"]
-    data_config = get_data_config(config)
-    logging_config = get_logging_config(config)
-    training_config = get_training_config(config)
-
-    save_model = logging_config['save_model']
-    model_output_path = logging_config['model_output_path']
-    mlflow_tracking_uri = logging_config['mlflow_tracking_uri']
-    use_kfold_cv = training_config['use_kfold_cv']
-    n_splits = training_config['n_splits']
-    shuffle_cv = training_config['shuffle_cv']
-    random_state_cv = training_config['random_state_cv']
-    use_optuna = training_config['use_optuna']
-    n_trials = training_config['n_trials']
-    timeout = training_config['timeout']
-    optuna_direction = training_config['optuna_direction']
-
-    # --- 2. MLflow Setup ---
-    mlflow.set_tracking_uri(mlflow_tracking_uri)
-    mlflow.set_experiment(f"{model_name}_experiment")
-    with mlflow.start_run(run_name=f"{model_name}_training_run"):
-        mlflow.log_params({"model_name": model_name, "task": task})
-        mlflow.log_params(training_config)
-        mlflow.log_params(data_config)
-
-        categorical_settings = data_config.get('categorical_columns_settings', {})
-        numerical_settings = data_config.get('numerical_columns_settings', {})
-        preprocessor_settings_for_dm = {}
-        if categorical_settings:
-            preprocessor_settings_for_dm['categorical'] = categorical_settings
-        if numerical_settings:
-            preprocessor_settings_for_dm['numerical'] = numerical_settings
-        
-        dm_init_params = {
-            'data_path': data_config['data_path'],
-            'target_column': data_config['target_column'],
-            'columns_to_drop': data_config.get('columns_to_drop', []),
-            'visualise': data_config.get('visualise_data', False),
-            'check_imbalance': data_config.get('check_imbalance', False),
-            'test_size': data_config.get('test_size', 0.2),
-            'stratify': data_config.get('stratify', False),
-            'random_state': data_config.get('random_state', 42), 
-            'preprocessor_settings': preprocessor_settings_for_dm
-        }
-      
-        dm = DataModule(**dm_init_params)
-        X_raw, y = dm.load_and_prepare()
-
-        label_encoder = None
-        if task == "classification":
-            label_encoder = LabelEncoder()
-            y = pd.Series(label_encoder.fit_transform(y), index=y.index)
-            mlflow.log_param("target_classes_original", label_encoder.classes_.tolist())
-       
-        fitted_preprocessor_global = dm.create_and_fit_preprocessor(X_raw)
-
-        # --- 3. Hyperparameter Tuning with Optuna or Standard Training ---
-        if use_optuna:
-            study = optuna.create_study(direction=optuna_direction, sampler=optuna.samplers.TPESampler(seed=random_state_cv))
-            study.optimize(
-                lambda trial: objective(trial, model_class, model_name, task, X_raw, y, fitted_preprocessor_global),
-                n_trials=n_trials,
-                timeout=timeout,
-                show_progress_bar=True 
-            )
-            final_model_hyperparams = study.best_params
-            mlflow.log_params({f"optuna_best_param_{k}": v for k, v in final_model_hyperparams.items()})
-        else:
-            final_model_hyperparams = model_hyperparams_initial
-            mlflow.log_params(final_model_hyperparams)
-
-
-        # --- 4. Final Model Training and Evaluation with K-Fold CV ---
-        if use_kfold_cv:
-            if task == "classification" and data_config.get("stratify", False):
-                kf = StratifiedKFold(n_splits=n_splits, shuffle=shuffle_cv, random_state=random_state_cv)
-            else:
-                kf = KFold(n_splits=n_splits, shuffle=shuffle_cv, random_state=random_state_cv)
-            
-            fold_metrics = []
-            for fold, (train_index, test_index) in enumerate(kf.split(X_raw, y)):
-                X_train_fold_raw, X_test_fold_raw = X_raw.iloc[train_index], X_raw.iloc[test_index]
-                y_train_fold, y_test_fold = y.iloc[train_index], y.iloc[test_index]
-
-                X_train_fold_processed = fitted_preprocessor_global.transform(X_train_fold_raw)
-                X_test_fold_processed = fitted_preprocessor_global.transform(X_test_fold_raw)
-
-                try:
-                    processed_feature_names = DataModule.get_feature_names_after_preprocessing(fitted_preprocessor_global, X_raw.columns.tolist())
-                    X_train_final = pd.DataFrame(X_train_fold_processed, columns=processed_feature_names, index=X_train_fold_raw.index)
-                    X_test_final = pd.DataFrame(X_test_fold_processed, columns=processed_feature_names, index=test_index)
-                except Exception:
-                    X_train_final = pd.DataFrame(X_train_fold_processed)
-                    X_test_final = pd.DataFrame(X_test_fold_processed)
-
-                model = model_class(**final_model_hyperparams) 
-                model.fit(X_train_final, y_train_fold) 
-                y_pred = model.predict(X_test_final)
-
-                if task == "classification":
-                    metric = accuracy_score(y_test_fold, y_pred)
-                    mlflow.log_metric(f"fold_{fold+1}_accuracy", metric)
-                else: 
-                    rmse = np.sqrt(mean_squared_error(y_test_fold, y_pred))
-                    mlflow.log_metric(f"fold_{fold+1}_rmse", rmse)
-                    metric = rmse
-                fold_metrics.append(metric)
-
-            avg_metric = np.mean(fold_metrics)
-            if task == "classification":
-                mlflow.log_metric("avg_accuracy", avg_metric)
-            else:
-                mlflow.log_metric("avg_rmse", avg_metric)
-            
-            # Re-train the final model on the full dataset for deployment
-            final_model = model_class(**final_model_hyperparams)
-            X_processed_final = fitted_preprocessor_global.transform(X_raw)
-            final_model.fit(X_processed_final, y)
-
-        # --- 5. Single Train-Test Split (if K-Fold is disabled) ---
-        else:
-            X_train_raw, X_test_raw, y_train, y_test = train_test_split(X_raw, y, test_size=data_config['test_size'], stratify=data_config['stratify'], random_state=data_config['random_state'])
-            
-            preprocessor = fitted_preprocessor_global
-            X_train_processed = preprocessor.transform(X_train_raw)
-            X_test_processed = preprocessor.transform(X_test_raw)
-
-            try:
-                processed_feature_names = DataModule.get_feature_names_after_preprocessing(preprocessor, X_raw.columns.tolist())
-                X_train_final = pd.DataFrame(X_train_processed, columns=processed_feature_names, index=X_train_raw.index)
-                X_test_final = pd.DataFrame(X_test_processed, columns=processed_feature_names, index=X_test_raw.index)
-            except Exception:
-                X_train_final = pd.DataFrame(X_train_processed)
-                X_test_final = pd.DataFrame(X_test_processed)
-
-            final_model = model_class(**final_model_hyperparams)
-            final_model.fit(X_train_final, y_train)
-            y_pred = final_model.predict(X_test_final)
-
-            if task == "classification":
-                acc = accuracy_score(y_test, y_pred)
-                mlflow.log_metric("accuracy", acc)
-            else: 
-                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-                mlflow.log_metric("rmse", rmse)
-
-        # --- 6. Save Model and End Run ---
-        if save_model:
-            os.makedirs(model_output_path, exist_ok=True)
-            model_path = os.path.join(model_output_path, f"{model_name}_{task}.pkl")
-            joblib.dump(final_model, model_path)
-            mlflow.log_artifact(model_path)
-        
-        mlflow.end_run()
 
 if __name__ == "__main__":
     main()
