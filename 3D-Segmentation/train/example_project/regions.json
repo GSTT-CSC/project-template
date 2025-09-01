@@ -1,0 +1,20 @@
+{
+    "xnat_project_name": "example_project",
+    "xnat_project_id": "example_project",
+    "regions_json_version": "0.1.0",
+    "image_filenames": [
+        "image-data.nii.gz"
+    ],
+    "training_models": [
+        {
+            "modelname": "Organs3D",
+            "contour_filenames": [
+                "Struct_Liver.nii.gz",
+                "Struct_Kidney_left.nii.gz",
+                "Struct_Kidney_right.nii.gz",
+                "Struct_Spleen.nii.gz",
+                "Struct_Heart.nii.gz"
+            ]
+        }
+    ]
+}

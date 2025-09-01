@@ -1,0 +1,17 @@
+{
+    "xnat_project_name": "ExampleProject", 
+    "xnat_project_id": "ExampleProject",
+    "regions_json_version": "0.1.0",
+    "image_filenames": [
+        "image-data.nii.gz"
+    ],
+    "training_models": [
+        {
+            "modelname": "ExampleSegmentation",
+            "contour_filenames": [
+                "Struct_Organ1.nii.gz",
+                "Struct_Organ2.nii.gz"
+            ]
+        }
+    ]
+}
