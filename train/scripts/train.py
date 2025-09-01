@@ -7,8 +7,8 @@ import joblib
 import pandas as pd
 from sklearn.metrics import classification_report, mean_squared_error, accuracy_score
 from sklearn.model_selection import KFold, StratifiedKFold, train_test_split
-from project.utils.parse_config import load_config, get_model_and_hyperparams, get_data_config, get_logging_config, get_training_config
-from project.DataModule import DataModule
+from src.utils.parse_config import load_config, get_model_and_hyperparams, get_data_config, get_logging_config, get_training_config
+from src.DataModule import DataModule
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 import optuna
