@@ -8,6 +8,8 @@ from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
+
 
 
 class DataModule:
@@ -302,51 +304,205 @@ class DataModule:
     def visualize_column_distributions(self) -> None:
         """Generate distribution plots for numerical and categorical columns."""
         if self.data is None:
-            print("Data not loaded. Cannot generate visualizations.")
+            print("⚠ Data not loaded. Cannot generate visualizations.")
             return
         
-        print("\n Generating distribution visualizations...")
+        print("\n Generating distribution visualizations")
+        
+        # Set matplotlib backend and style
+        import matplotlib
+        matplotlib.use('Agg')  # Use non-interactive backend first, then switch if needed
+        try:
+            matplotlib.use('TkAgg')  # Try interactive backend
+        except ImportError:
+            try:
+                matplotlib.use('Qt5Agg')
+            except ImportError:
+                print("⚠ Using non-interactive matplotlib backend. Plots will be saved instead of displayed.")
+        
+        plt.style.use('default')
+        
+        # Create output directory for plots if using non-interactive backend
+        plot_dir = Path("plots")
+        plot_dir.mkdir(exist_ok=True)
         
         # Numerical distributions
         if self.numerical_features:
+            print(f" Creating plots for {len(self.numerical_features)} numerical features")
+            
             n_cols = min(3, len(self.numerical_features))
             n_rows = (len(self.numerical_features) + n_cols - 1) // n_cols
             
             fig, axes = plt.subplots(n_rows, n_cols, figsize=(15, 5 * n_rows))
-            axes = axes.flatten() if n_rows * n_cols > 1 else [axes]
+            if n_rows * n_cols == 1:
+                axes = [axes]
+            elif n_rows == 1:
+                axes = axes if isinstance(axes, np.ndarray) else [axes]
+            else:
+                axes = axes.flatten()
             
             for i, col in enumerate(self.numerical_features):
-                sns.histplot(data=self.data, x=col, kde=True, ax=axes[i])
-                axes[i].set_title(f'Distribution of {col}')
-                axes[i].grid(True, alpha=0.3)
+                try:
+                    # Create histogram with KDE
+                    sns.histplot(data=self.data, x=col, kde=True, ax=axes[i], stat='density')
+                    axes[i].set_title(f'Distribution of {col}', fontsize=12, fontweight='bold')
+                    axes[i].set_xlabel(col, fontsize=10)
+                    axes[i].set_ylabel('Density', fontsize=10)
+                    axes[i].grid(True, alpha=0.3)
+                    
+                    # Add statistics text
+                    mean_val = self.data[col].mean()
+                    std_val = self.data[col].std()
+                    axes[i].text(0.02, 0.98, f'μ={mean_val:.2f}\nσ={std_val:.2f}', 
+                               transform=axes[i].transAxes, verticalalignment='top',
+                               bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+                except Exception as e:
+                    axes[i].text(0.5, 0.5, f'Error plotting {col}:\n{str(e)}', 
+                               ha='center', va='center', transform=axes[i].transAxes)
+                    axes[i].set_title(f'Error: {col}')
             
             # Hide empty subplots
             for i in range(len(self.numerical_features), len(axes)):
                 axes[i].set_visible(False)
             
             plt.tight_layout()
-            plt.show()
+            
+            # Save and/or show plot
+            numerical_plot_path = plot_dir / "numerical_distributions.png"
+            plt.savefig(numerical_plot_path, dpi=300, bbox_inches='tight')
+            print(f"  Numerical distributions saved to: {numerical_plot_path}")
+            
+            try:
+                plt.show(block=False)
+                print("  Numerical distributions displayed")
+            except Exception:
+                print(" Numerical distributions saved (display not available)")
+            
+            plt.close()
         
         # Categorical distributions
         if self.categorical_features:
+            print(f" Creating plots for {len(self.categorical_features)} categorical features")
+            
             n_cols = min(2, len(self.categorical_features))
             n_rows = (len(self.categorical_features) + n_cols - 1) // n_cols
             
             fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 4 * n_rows))
-            axes = axes.flatten() if n_rows * n_cols > 1 else [axes]
+            if n_rows * n_cols == 1:
+                axes = [axes]
+            elif n_rows == 1:
+                axes = axes if isinstance(axes, np.ndarray) else [axes]
+            else:
+                axes = axes.flatten()
             
             for i, col in enumerate(self.categorical_features):
-                sns.countplot(data=self.data, x=col, ax=axes[i])
-                axes[i].set_title(f'Distribution of {col}')
-                axes[i].tick_params(axis='x', rotation=45)
-                axes[i].grid(True, alpha=0.3)
+                try:
+                    # Get value counts for better plotting
+                    value_counts = self.data[col].value_counts().head(20)  # Show top 20 categories
+                    
+                    # Create count plot
+                    sns.countplot(data=self.data[self.data[col].isin(value_counts.index)], 
+                                x=col, ax=axes[i], order=value_counts.index)
+                    axes[i].set_title(f'Distribution of {col}', fontsize=12, fontweight='bold')
+                    axes[i].set_xlabel(col, fontsize=10)
+                    axes[i].set_ylabel('Count', fontsize=10)
+                    axes[i].tick_params(axis='x', rotation=45)
+                    axes[i].grid(True, alpha=0.3, axis='y')
+                    
+                    # Add count annotations on bars
+                    for p in axes[i].patches:
+                        height = p.get_height()
+                        if height > 0:
+                            axes[i].annotate(f'{int(height)}', 
+                                           (p.get_x() + p.get_width()/2., height),
+                                           ha='center', va='bottom', fontsize=8)
+                    
+                    # Add unique count info
+                    unique_count = self.data[col].nunique()
+                    axes[i].text(0.02, 0.98, f'Unique: {unique_count}', 
+                               transform=axes[i].transAxes, verticalalignment='top',
+                               bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+                    
+                except Exception as e:
+                    axes[i].text(0.5, 0.5, f'Error plotting {col}:\n{str(e)}', 
+                               ha='center', va='center', transform=axes[i].transAxes)
+                    axes[i].set_title(f'Error: {col}')
             
             # Hide empty subplots
             for i in range(len(self.categorical_features), len(axes)):
                 axes[i].set_visible(False)
             
             plt.tight_layout()
-            plt.show()
+            
+            # Save and/or show plot
+            categorical_plot_path = plot_dir / "categorical_distributions.png"
+            plt.savefig(categorical_plot_path, dpi=300, bbox_inches='tight')
+            print(f"  💾 Categorical distributions saved to: {categorical_plot_path}")
+            
+            try:
+                plt.show(block=False)
+                print("  👁️  Categorical distributions displayed")
+            except Exception:
+                print("  📊 Categorical distributions saved (display not available)")
+            
+            plt.close()
+        
+        # Target distribution
+        if self.data is not None and self.target_column in self.data.columns:
+            print(f"  🎯 Creating target variable plot...")
+            
+            plt.figure(figsize=(10, 6))
+            
+            target_data = self.data[self.target_column]
+            
+            if target_data.dtype in ['object', 'category'] or target_data.nunique() <= 20:
+                # Categorical target
+                sns.countplot(data=self.data, x=self.target_column)
+                plt.title(f'Distribution of Target: {self.target_column}', fontsize=14, fontweight='bold')
+                plt.xticks(rotation=45)
+                
+                # Add percentage labels
+                total = len(target_data)
+                for p in plt.gca().patches:
+                    percentage = f'{100 * p.get_height() / total:.1f}%'
+                    plt.gca().annotate(percentage, (p.get_x() + p.get_width()/2., p.get_height()),
+                                     ha='center', va='bottom')
+            else:
+                # Numerical target
+                sns.histplot(data=self.data, x=self.target_column, kde=True)
+                plt.title(f'Distribution of Target: {self.target_column}', fontsize=14, fontweight='bold')
+                
+                # Add statistics
+                mean_val = target_data.mean()
+                std_val = target_data.std()
+                plt.text(0.02, 0.98, f'μ={mean_val:.2f}\nσ={std_val:.2f}', 
+                        transform=plt.gca().transAxes, verticalalignment='top',
+                        bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8))
+            
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            
+            # Save and/or show plot
+            target_plot_path = plot_dir / "target_distribution.png"
+            plt.savefig(target_plot_path, dpi=300, bbox_inches='tight')
+            print(f"  💾 Target distribution saved to: {target_plot_path}")
+            
+            try:
+                plt.show(block=False)
+                print("  👁️  Target distribution displayed")
+            except Exception:
+                print("  📊 Target distribution saved (display not available)")
+            
+            plt.close()
+        
+        print(f"✅ Visualization complete! Plots saved in '{plot_dir}' directory")
+        
+        # Keep plots open for a moment if interactive
+        try:
+            import time
+            time.sleep(1)  # Brief pause to ensure plots are rendered
+        except:
+            pass
 
     def _check_target_imbalance(self, y: pd.Series) -> None:
         """Check and report target class imbalance."""
