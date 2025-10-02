@@ -29,7 +29,7 @@ from src.DataModule import DataModule
 
 
 class HyperparameterTuner:
-    """Handles hyperparameter optimization using Optuna."""
+    """Handles hyperparameter optimization using Optuna with new architecture."""
     
     def __init__(self, config_path: str):
         """Initialize tuner with configuration."""
@@ -57,17 +57,29 @@ class HyperparameterTuner:
         print(f"Initializing hyperparameter tuning for {self.model_name} ({self.task})")
 
     def setup_mlflow(self) -> None:
-        """Setup MLflow tracking for tuning."""
-        mlflow.set_tracking_uri(self.logging_config['mlflow_tracking_uri'])
-        experiment_name = f"{self.model_name}_{self.task}_tuning"
-        mlflow.set_experiment(experiment_name)
-        print(f"MLflow experiment: {experiment_name}")
+        try:
+            import requests
+            print(f"Setting up MLflow tracking at {self.logging_config['mlflow_tracking_uri']}")
+        # Test connection with timeout
+            response = requests.get(self.logging_config['mlflow_tracking_uri'], timeout=5)
+            mlflow.set_tracking_uri(self.logging_config['mlflow_tracking_uri'])
+            experiment_name = f"{self.model_name}_{self.task}_tuning"
+            mlflow.set_experiment(experiment_name)
+            print(f"MLflow experiment: {experiment_name}")
+        except (requests.exceptions.RequestException, Exception) as e:
+            print(f"MLflow server not available: {e}")
+            print("Using local file tracking instead")
+            mlflow.set_tracking_uri("file:./mlflow_runs")
+            experiment_name = f"{self.model_name}_{self.task}_tuning"
+            mlflow.set_experiment(experiment_name)
 
     def load_and_prepare_data(self) -> None:
-        """Load and prepare data for tuning."""
-        print("\n Loading and preparing data")
+        """Load and prepare data for tuning using new architecture."""
+        print("\n" + "="*60)
+        print("LOADING AND PREPARING DATA FOR TUNING")
+        print("="*60)
         
-        # Initialize DataModule
+        # Initialize DataModule with visualization disabled for tuning
         self.data_module = DataModule(
             data_path=self.data_config['data_path'],
             target_column=self.data_config['target_column'],
@@ -77,10 +89,11 @@ class HyperparameterTuner:
             check_imbalance=self.data_config.get('check_imbalance', False),
             test_size=self.data_config.get('test_size', 0.2),
             stratify=self.data_config.get('stratify', False),
-            random_state=self.data_config.get('random_state', 42)
+            random_state=self.data_config.get('random_state', 42),
+            feature_engineering=self.data_config.get('feature_engineering', False)
         )
         
-        # Load and prepare data
+        # Load and prepare data (DataLoader handles the heavy lifting)
         self.X, self.y = self.data_module.load_and_prepare()
         
         # Encode target for classification
@@ -95,7 +108,14 @@ class HyperparameterTuner:
         
         # Fit preprocessor once for all trials
         self.fitted_preprocessor = self.data_module.create_and_fit_preprocessor(self.X)
-        print(" Preprocessor fitted for optimization")
+        print("Preprocessor fitted for optimization")
+        
+        # Print data summary
+        print(f"\nDATA SUMMARY FOR TUNING:")
+        print(f"   Features shape: {self.X.shape}")
+        print(f"   Target shape: {self.y.shape}")
+        print(f"   Numerical features: {len(self.data_module.numerical_features)}")
+        print(f"   Categorical features: {len(self.data_module.categorical_features)}")
 
     def suggest_hyperparameters(self, trial: optuna.Trial) -> Dict[str, Any]:
         """Suggest hyperparameters for a trial based on model type."""
@@ -199,16 +219,17 @@ class HyperparameterTuner:
             return metric
             
         except Exception as e:
-            print(f" Trial failed with error: {e}")
+            print(f"Trial failed with error: {e}")
             # Return worst possible score for failed trials
             return 0.0 if self.task == "classification" else float('inf')
 
     def run_optimization(self) -> optuna.Study:
         """Run Optuna optimization."""
-        print(f"\n Starting hyperparameter optimization")
+        print(f"\nSTARTING HYPERPARAMETER OPTIMIZATION")
         print(f"  Trials: {self.training_config['n_trials']}")
         print(f"  Timeout: {self.training_config['timeout']} seconds")
         print(f"  Direction: {self.training_config['optuna_direction']}")
+        print("-" * 50)
         
         # Create study
         direction = self.training_config['optuna_direction']
@@ -232,7 +253,8 @@ class HyperparameterTuner:
 
     def save_best_parameters(self, study: optuna.Study) -> str:
         """Save best parameters to JSON file."""
-        print(f"\n Saving optimization results")
+        print(f"\nSAVING OPTIMIZATION RESULTS")
+        print("-" * 35)
         
         # Create models directory
         models_dir = Path("models")
@@ -243,10 +265,10 @@ class HyperparameterTuner:
         with open(best_params_path, 'w') as f:
             json.dump(study.best_params, f, indent=2)
         
-        print(f" Best parameters saved to: {best_params_path}")
+        print(f"Best parameters saved to: {best_params_path}")
         
         # Print results summary
-        print(f"\n Optimization completed.")
+        print(f"\nOPTIMIZATION COMPLETED")
         print(f"  Best value: {study.best_value:.4f}")
         print(f"  Best parameters:")
         for param, value in study.best_params.items():
@@ -254,11 +276,45 @@ class HyperparameterTuner:
         
         return str(best_params_path)
 
+    def save_study_visualization(self, study: optuna.Study) -> None:
+        """Save optimization visualizations if optuna visualization is available."""
+        try:
+            import optuna.visualization as vis
+            
+            # Create plots directory
+            plots_dir = Path("plots/optimization")
+            plots_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Optimization history
+            fig = vis.plot_optimization_history(study)
+            fig.write_html(plots_dir / "optimization_history.html")
+            
+            # Parameter importance
+            if len(study.trials) > 1:
+                fig = vis.plot_param_importances(study)
+                fig.write_html(plots_dir / "parameter_importance.html")
+            
+            # Parallel coordinate plot
+            if len(study.trials) > 1:
+                fig = vis.plot_parallel_coordinate(study)
+                fig.write_html(plots_dir / "parallel_coordinate.html")
+            
+            print(f"Optimization visualizations saved to: {plots_dir}")
+            
+        except ImportError:
+            print("Optuna visualization not available. Install with: pip install optuna[visualization]")
+        except Exception as e:
+            print(f"Could not create visualizations: {e}")
+
     def run(self) -> None:
         """Run the complete tuning pipeline."""
         if not self.training_config.get('use_optuna', False):
             print("Optuna tuning is disabled in configuration. Exiting.")
             return
+        
+        print("\n" + "="*80)
+        print("STARTING HYPERPARAMETER OPTIMIZATION PIPELINE")
+        print("="*80)
         
         try:
             # Setup MLflow
@@ -282,6 +338,13 @@ class HyperparameterTuner:
                 if self.label_encoder is not None:
                     mlflow.log_param('target_classes', list(self.label_encoder.classes_))
                 
+                mlflow.log_params({
+                    'features_count': self.X.shape[1],
+                    'samples_count': self.X.shape[0],
+                    'numerical_features_count': len(self.data_module.numerical_features),
+                    'categorical_features_count': len(self.data_module.categorical_features)
+                })
+                
                 # Run optimization
                 study = self.run_optimization()
                 
@@ -293,6 +356,9 @@ class HyperparameterTuner:
                 best_params_path = self.save_best_parameters(study)
                 mlflow.log_artifact(best_params_path)
                 
+                # Save visualizations
+                self.save_study_visualization(study)
+                
                 # Log study statistics
                 mlflow.log_metrics({
                     'n_trials_completed': len(study.trials),
@@ -300,12 +366,18 @@ class HyperparameterTuner:
                     'n_trials_failed': len([t for t in study.trials if t.state == optuna.trial.TrialState.FAIL])
                 })
                 
-                print(f"\n Hyperparameter tuning completed successfully!")
-                print(f" MLflow run: {mlflow.active_run().info.run_id}")
-                print(f" Run train.py next to train the model with optimized parameters")
+                print(f"\n" + "="*80)
+                print("HYPERPARAMETER TUNING COMPLETED SUCCESSFULLY!")
+                print("="*80)
+                print(f"MLflow run ID: {mlflow.active_run().info.run_id}")
+                print(f"Best parameters saved to: {best_params_path}")
+                print("Run train.py next to train the model with optimized parameters")
+                print("="*80)
                 
         except Exception as e:
-            print(f"\n Tuning failed: {str(e)}")
+            print(f"\nTUNING FAILED: {str(e)}")
+            import traceback
+            traceback.print_exc()
             raise
         finally:
             mlflow.end_run()
@@ -318,19 +390,19 @@ def main():
     parser = argparse.ArgumentParser(description='Tune hyperparameters for ML model')
     parser.add_argument(
         '--config', 
-        default='/Users/ksonar/Documents/Technical/project-template/train/config/local_config.cfg',
+        default='/Users/ksonar/Documents/Technical/project-template/Structured_data_template/train/config/local_config.cfg',
         help='Path to configuration file'
     )
     
     args = parser.parse_args()
     
     # Handle relative paths
-    config_path = args.config
-    if not Path(config_path).is_absolute():
-        config_path = Path(__file__).parent / config_path
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = Path.cwd() / config_path
     
-    if not Path(config_path).exists():
-        print(f" Configuration file not found: {config_path}")
+    if not config_path.exists():
+        print(f"Configuration file not found: {config_path}")
         sys.exit(1)
     
     # Create and run tuner

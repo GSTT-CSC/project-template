@@ -1,5 +1,6 @@
 """
 Visualization utilities for data exploration and model evaluation.
+Fixed target correlation calculation for categorical targets.
 """
 
 import matplotlib.pyplot as plt
@@ -53,9 +54,9 @@ class DataVisualizer:
             else:
                 # Fallback to non-interactive
                 matplotlib.use('Agg')
-                print("ℹUsing non-interactive backend. Plots will be saved only.")
+                print("Using non-interactive backend. Plots will be saved only.")
         except Exception:
-            print(" Backend setup failed. Using default.")
+            print("Backend setup failed. Using default.")
     
     def plot_distributions(self, data: pd.DataFrame, columns: Optional[List[str]] = None,
                           target_column: Optional[str] = None, 
@@ -118,8 +119,9 @@ class DataVisualizer:
                 if len(unique_targets) <= 10:  # Only if not too many classes
                     for target_val in unique_targets:
                         subset = data[data[target_column] == target_val]
-                        sns.histplot(subset[col], alpha=0.7, label=f"{target_column}={target_val}",
-                                   kde=True, ax=ax)
+                        if len(subset) > 0:
+                            sns.histplot(subset[col], alpha=0.7, label=f"{target_column}={target_val}",
+                                       kde=True, ax=ax)
                     ax.legend()
                 else:
                     sns.histplot(data[col], kde=True, ax=ax)
@@ -167,9 +169,10 @@ class DataVisualizer:
             if target_column and target_column in data.columns:
                 # Stacked bar plot by target
                 subset_data = data[data[col].isin(value_counts.index)]
-                pd.crosstab(subset_data[col], subset_data[target_column]).plot(kind='bar', 
-                          stacked=True, ax=ax, rot=45)
-                ax.legend(title=target_column, bbox_to_anchor=(1.05, 1), loc='upper left')
+                if len(subset_data) > 0:
+                    pd.crosstab(subset_data[col], subset_data[target_column]).plot(kind='bar', 
+                              stacked=True, ax=ax, rot=45)
+                    ax.legend(title=target_column, bbox_to_anchor=(1.05, 1), loc='upper left')
             else:
                 # Simple count plot
                 sns.countplot(data=data[data[col].isin(value_counts.index)], 
@@ -232,19 +235,45 @@ class DataVisualizer:
                         transform=axes[0].transAxes, verticalalignment='top',
                         bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8))
         
-        # Right plot: Target vs top features correlation/relationship
+        # Right plot: Target vs top features relationship
         numerical_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         if target_column in numerical_cols:
             numerical_cols.remove(target_column)
         
-        if numerical_cols:
-            # Correlation heatmap with target
-            target_corr = data[numerical_cols + [target_column]].corr()[target_column].drop(target_column)
-            top_corr = target_corr.abs().nlargest(min(10, len(target_corr)))
-            
-            sns.barplot(x=top_corr.values, y=top_corr.index, ax=axes[1])
-            axes[1].set_title(f'Top Features Correlated with {target_column}')
-            axes[1].set_xlabel('Correlation Coefficient')
+        if numerical_cols and pd.api.types.is_numeric_dtype(data[target_column]):
+            # Correlation heatmap with numerical target (only if target is also numerical)
+            try:
+                target_corr = data[numerical_cols + [target_column]].corr()[target_column].drop(target_column)
+                top_corr = target_corr.abs().nlargest(min(10, len(target_corr)))
+                
+                sns.barplot(x=top_corr.values, y=top_corr.index, ax=axes[1])
+                axes[1].set_title(f'Top Features Correlated with {target_column}')
+                axes[1].set_xlabel('Correlation Coefficient')
+            except Exception as e:
+                axes[1].text(0.5, 0.5, f'Could not compute correlations\n({str(e)})', 
+                            ha='center', va='center', transform=axes[1].transAxes)
+                axes[1].set_title('Correlation Analysis')
+        elif numerical_cols:
+            # For categorical target, show feature importance or basic stats
+            try:
+                # Show distribution of first numerical feature by target categories
+                if len(numerical_cols) > 0:
+                    first_num_col = numerical_cols[0]
+                    for target_val in data[target_column].unique()[:5]:  # Limit to 5 categories
+                        subset = data[data[target_column] == target_val]
+                        if len(subset) > 0:
+                            sns.histplot(subset[first_num_col], alpha=0.6, 
+                                       label=f'{target_column}={target_val}', ax=axes[1])
+                    axes[1].legend()
+                    axes[1].set_title(f'{first_num_col} Distribution by {target_column}')
+                else:
+                    axes[1].text(0.5, 0.5, 'No numerical features\nfor analysis', 
+                                ha='center', va='center', transform=axes[1].transAxes)
+                    axes[1].set_title('Feature Analysis')
+            except Exception as e:
+                axes[1].text(0.5, 0.5, f'Analysis not available\n({str(e)})', 
+                            ha='center', va='center', transform=axes[1].transAxes)
+                axes[1].set_title('Feature Analysis')
         else:
             axes[1].text(0.5, 0.5, 'No numerical features\nfor correlation analysis', 
                         ha='center', va='center', transform=axes[1].transAxes)
@@ -259,7 +288,7 @@ class DataVisualizer:
         numerical_data = data.select_dtypes(include=[np.number])
         
         if numerical_data.empty:
-            print(" No numerical columns for correlation analysis")
+            print("No numerical columns for correlation analysis")
             return
         
         # Calculate correlation matrix
@@ -286,7 +315,7 @@ class DataVisualizer:
         missing_data = data.isnull()
         
         if not missing_data.any().any():
-            print(" No missing data to visualize")
+            print("No missing data to visualize")
             return
         
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
@@ -327,7 +356,7 @@ class DataVisualizer:
         numerical_cols = data.select_dtypes(include=[np.number]).columns.tolist()
         
         if not numerical_cols:
-            print(" No numerical columns for outlier analysis")
+            print("No numerical columns for outlier analysis")
             return
         
         n_cols = min(3, len(numerical_cols))
@@ -381,7 +410,7 @@ class DataVisualizer:
         self._save_and_show(fig, save_name)
         
         # Print outlier summary
-        print("\n OUTLIER ANALYSIS SUMMARY:")
+        print("\nOUTLIER ANALYSIS SUMMARY:")
         for col, info in outlier_summary.items():
             print(f"  {col}: {info['count']} outliers ({info['percentage']:.1f}%)")
     
@@ -421,7 +450,7 @@ class DataVisualizer:
         # Try to display
         try:
             plt.show(block=False)
-            print("👁️  Plot displayed")
+            print("Plot displayed")
         except Exception:
             print("Plot saved (display not available)")
         
@@ -621,7 +650,7 @@ class ModelVisualizer:
         """Save figure and optionally display it."""
         save_path = self.output_dir / f"{save_name}.png"
         fig.savefig(save_path, dpi=self.dpi, bbox_inches='tight', facecolor='white')
-        print(f" Model plot saved: {save_path}")
+        print(f"Model plot saved: {save_path}")
         
         try:
             plt.show(block=False)

@@ -1,9 +1,11 @@
 """
 Data utilities for advanced data processing and feature engineering.
+Fixed JSON serialization issues.
 """
 
 import pandas as pd
 import numpy as np
+import json
 from typing import Dict, List, Any, Optional, Tuple, Union
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.feature_selection import SelectKBest, f_classif, f_regression, mutual_info_classif, mutual_info_regression
@@ -57,7 +59,7 @@ class FeatureEngineer:
         self.created_features.extend(new_cols)
         self.feature_creation_log.append(f"Created {len(new_cols)} polynomial features (degree={degree})")
         
-        print(f" Created {len(new_cols)} polynomial features")
+        print(f"Created {len(new_cols)} polynomial features")
         return result_df
     
     def create_interaction_features(self, data: pd.DataFrame, columns: List[str],
@@ -114,7 +116,7 @@ class FeatureEngineer:
         from sklearn.preprocessing import KBinsDiscretizer
         
         if not pd.api.types.is_numeric_dtype(data[column]):
-            print(f" Column {column} is not numeric, skipping binning")
+            print(f"Column {column} is not numeric, skipping binning")
             return data
         
         result_df = data.copy()
@@ -174,13 +176,13 @@ class FeatureEngineer:
                     new_features.append(feature_name)
                     
                 except Exception as e:
-                    print(f" Could not create {func} aggregation for {agg_col}: {e}")
+                    print(f"Could not create {func} aggregation for {agg_col}: {e}")
                     continue
         
         self.created_features.extend(new_features)
         self.feature_creation_log.append(f"Created {len(new_features)} aggregation features")
         
-        print(f" Created {len(new_features)} aggregation features")
+        print(f"Created {len(new_features)} aggregation features")
         return result_df
     
     def create_datetime_features(self, data: pd.DataFrame, datetime_col: str) -> pd.DataFrame:
@@ -201,7 +203,7 @@ class FeatureEngineer:
             try:
                 result_df[datetime_col] = pd.to_datetime(data[datetime_col])
             except Exception as e:
-                print(f" Could not convert {datetime_col} to datetime: {e}")
+                print(f"Could not convert {datetime_col} to datetime: {e}")
                 return data
         
         dt_series = result_df[datetime_col]
@@ -309,7 +311,7 @@ class FeatureSelector:
         self.selection_scores['mutual_info'] = feature_scores
         self.selected_features['mutual_info'] = selected_features
         
-        print(f" Selected {len(selected_features)} features using mutual information (threshold={threshold})")
+        print(f"Selected {len(selected_features)} features using mutual information (threshold={threshold})")
         return selected_features
     
     def select_correlation_features(self, X: pd.DataFrame, threshold: float = 0.95) -> List[str]:
@@ -361,7 +363,7 @@ class FeatureSelector:
         numerical_cols = X.select_dtypes(include=[np.number]).columns
         
         if len(numerical_cols) == 0:
-            print(" No numerical columns for variance threshold selection")
+            print("No numerical columns for variance threshold selection")
             return X.columns.tolist()
         
         selector = VarianceThreshold(threshold=threshold)
@@ -500,7 +502,7 @@ class DataTransformer:
             
             # Check if all values are positive
             if (data[col] <= 0).any():
-                print(f" Column {col} contains non-positive values, using log1p instead")
+                print(f"Column {col} contains non-positive values, using log1p instead")
                 result_df[f"{col}_log"] = np.log1p(data[col])
             else:
                 result_df[f"{col}_log"] = np.log(data[col])
@@ -508,7 +510,7 @@ class DataTransformer:
             transformed_cols.append(f"{col}_log")
         
         self.transformation_log.append(f"Applied log transformation to {len(transformed_cols)} columns")
-        print(f" Applied log transformation to {len(transformed_cols)} columns")
+        print(f"Applied log transformation to {len(transformed_cols)} columns")
         return result_df
     
     def apply_box_cox_transform(self, data: pd.DataFrame, columns: List[str]) -> pd.DataFrame:
@@ -551,7 +553,7 @@ class DataTransformer:
                 continue
         
         self.transformation_log.append(f"Applied Box-Cox transformation to {len(transformed_cols)} columns")
-        print(f" Applied Box-Cox transformation to {len(transformed_cols)} columns")
+        print(f"Applied Box-Cox transformation to {len(transformed_cols)} columns")
         return result_df
     
     def create_target_encoding(self, data: pd.DataFrame, categorical_col: str, 
@@ -647,36 +649,36 @@ class DataProfiler:
             
             base_profile = {
                 'dtype': str(col_data.dtype),
-                'missing_count': col_data.isnull().sum(),
-                'missing_percentage': (col_data.isnull().sum() / len(col_data)) * 100,
-                'unique_count': col_data.nunique(),
-                'unique_percentage': (col_data.nunique() / len(col_data)) * 100
+                'missing_count': int(col_data.isnull().sum()),
+                'missing_percentage': float((col_data.isnull().sum() / len(col_data)) * 100),
+                'unique_count': int(col_data.nunique()),
+                'unique_percentage': float((col_data.nunique() / len(col_data)) * 100)
             }
             
             if pd.api.types.is_numeric_dtype(col_data):
                 # Numerical column profile
                 base_profile.update({
-                    'mean': col_data.mean(),
-                    'std': col_data.std(),
-                    'min': col_data.min(),
-                    'max': col_data.max(),
-                    'q25': col_data.quantile(0.25),
-                    'q50': col_data.quantile(0.50),
-                    'q75': col_data.quantile(0.75),
-                    'skewness': col_data.skew(),
-                    'kurtosis': col_data.kurtosis(),
-                    'zeros_count': (col_data == 0).sum(),
-                    'zeros_percentage': ((col_data == 0).sum() / len(col_data)) * 100
+                    'mean': float(col_data.mean()) if not pd.isna(col_data.mean()) else None,
+                    'std': float(col_data.std()) if not pd.isna(col_data.std()) else None,
+                    'min': float(col_data.min()) if not pd.isna(col_data.min()) else None,
+                    'max': float(col_data.max()) if not pd.isna(col_data.max()) else None,
+                    'q25': float(col_data.quantile(0.25)) if not pd.isna(col_data.quantile(0.25)) else None,
+                    'q50': float(col_data.quantile(0.50)) if not pd.isna(col_data.quantile(0.50)) else None,
+                    'q75': float(col_data.quantile(0.75)) if not pd.isna(col_data.quantile(0.75)) else None,
+                    'skewness': float(col_data.skew()) if not pd.isna(col_data.skew()) else None,
+                    'kurtosis': float(col_data.kurtosis()) if not pd.isna(col_data.kurtosis()) else None,
+                    'zeros_count': int((col_data == 0).sum()),
+                    'zeros_percentage': float(((col_data == 0).sum() / len(col_data)) * 100)
                 })
             else:
                 # Categorical column profile
                 value_counts = col_data.value_counts()
                 base_profile.update({
-                    'most_frequent': value_counts.index[0] if len(value_counts) > 0 else None,
-                    'most_frequent_count': value_counts.iloc[0] if len(value_counts) > 0 else 0,
-                    'least_frequent': value_counts.index[-1] if len(value_counts) > 0 else None,
-                    'least_frequent_count': value_counts.iloc[-1] if len(value_counts) > 0 else 0,
-                    'top_5_values': value_counts.head(5).to_dict()
+                    'most_frequent': str(value_counts.index[0]) if len(value_counts) > 0 else None,
+                    'most_frequent_count': int(value_counts.iloc[0]) if len(value_counts) > 0 else 0,
+                    'least_frequent': str(value_counts.index[-1]) if len(value_counts) > 0 else None,
+                    'least_frequent_count': int(value_counts.iloc[-1]) if len(value_counts) > 0 else 0,
+                    'top_5_values': {str(k): int(v) for k, v in value_counts.head(5).items()}
                 })
             
             profiles[col] = base_profile
@@ -699,16 +701,16 @@ class DataProfiler:
                 corr_value = corr_matrix.iloc[i, j]
                 if abs(corr_value) > 0.7:  # High correlation threshold
                     high_corr_pairs.append({
-                        'feature1': corr_matrix.columns[i],
-                        'feature2': corr_matrix.columns[j],
-                        'correlation': corr_value
+                        'feature1': str(corr_matrix.columns[i]),
+                        'feature2': str(corr_matrix.columns[j]),
+                        'correlation': float(corr_value)
                     })
         
         return {
-            'correlation_matrix': corr_matrix.to_dict(),
+            'correlation_matrix': {str(k): {str(k2): float(v2) for k2, v2 in v.items()} for k, v in corr_matrix.to_dict().items()},
             'high_correlations': high_corr_pairs,
-            'max_correlation': abs(corr_matrix.values[np.triu_indices_from(corr_matrix.values, k=1)]).max(),
-            'mean_correlation': abs(corr_matrix.values[np.triu_indices_from(corr_matrix.values, k=1)]).mean()
+            'max_correlation': float(abs(corr_matrix.values[np.triu_indices_from(corr_matrix.values, k=1)]).max()),
+            'mean_correlation': float(abs(corr_matrix.values[np.triu_indices_from(corr_matrix.values, k=1)]).mean())
         }
     
     def _get_missing_data_analysis(self, data: pd.DataFrame) -> Dict[str, Any]:
@@ -717,12 +719,12 @@ class DataProfiler:
         missing_percentages = (missing_counts / len(data)) * 100
         
         return {
-            'total_missing_cells': missing_counts.sum(),
-            'missing_percentage_overall': (missing_counts.sum() / data.size) * 100,
-            'columns_with_missing': missing_counts[missing_counts > 0].to_dict(),
-            'missing_percentages': missing_percentages[missing_percentages > 0].to_dict(),
-            'complete_rows': len(data) - data.isnull().any(axis=1).sum(),
-            'complete_rows_percentage': ((len(data) - data.isnull().any(axis=1).sum()) / len(data)) * 100
+            'total_missing_cells': int(missing_counts.sum()),
+            'missing_percentage_overall': float((missing_counts.sum() / data.size) * 100),
+            'columns_with_missing': {str(k): int(v) for k, v in missing_counts[missing_counts > 0].items()},
+            'missing_percentages': {str(k): float(v) for k, v in missing_percentages[missing_percentages > 0].items()},
+            'complete_rows': int(len(data) - data.isnull().any(axis=1).sum()),
+            'complete_rows_percentage': float(((len(data) - data.isnull().any(axis=1).sum()) / len(data)) * 100)
         }
     
     def _get_duplicate_analysis(self, data: pd.DataFrame) -> Dict[str, Any]:
@@ -730,9 +732,9 @@ class DataProfiler:
         duplicate_rows = data.duplicated().sum()
         
         return {
-            'duplicate_rows': duplicate_rows,
-            'duplicate_percentage': (duplicate_rows / len(data)) * 100,
-            'unique_rows': len(data) - duplicate_rows
+            'duplicate_rows': int(duplicate_rows),
+            'duplicate_percentage': float((duplicate_rows / len(data)) * 100),
+            'unique_rows': int(len(data) - duplicate_rows)
         }
     
     def _assess_data_quality(self, data: pd.DataFrame) -> Dict[str, float]:
@@ -762,10 +764,10 @@ class DataProfiler:
         overall = np.mean([completeness, uniqueness, consistency])
         
         return {
-            'completeness': completeness,
-            'uniqueness': uniqueness,
-            'consistency': consistency,
-            'overall_quality': overall
+            'completeness': float(completeness),
+            'uniqueness': float(uniqueness),
+            'consistency': float(consistency),
+            'overall_quality': float(overall)
         }
     
     def _get_target_analysis(self, data: pd.DataFrame, target_col: str) -> Dict[str, Any]:
@@ -774,18 +776,18 @@ class DataProfiler:
         
         analysis = {
             'dtype': str(target_data.dtype),
-            'missing_count': target_data.isnull().sum(),
-            'unique_count': target_data.nunique(),
-            'distribution': target_data.value_counts().to_dict()
+            'missing_count': int(target_data.isnull().sum()),
+            'unique_count': int(target_data.nunique()),
+            'distribution': {str(k): int(v) for k, v in target_data.value_counts().items()}
         }
         
         if pd.api.types.is_numeric_dtype(target_data):
             analysis.update({
-                'mean': target_data.mean(),
-                'std': target_data.std(),
-                'min': target_data.min(),
-                'max': target_data.max(),
-                'skewness': target_data.skew(),
+                'mean': float(target_data.mean()) if not pd.isna(target_data.mean()) else None,
+                'std': float(target_data.std()) if not pd.isna(target_data.std()) else None,
+                'min': float(target_data.min()) if not pd.isna(target_data.min()) else None,
+                'max': float(target_data.max()) if not pd.isna(target_data.max()) else None,
+                'skewness': float(target_data.skew()) if not pd.isna(target_data.skew()) else None,
                 'recommended_task': 'regression' if target_data.nunique() > 20 else 'classification'
             })
         else:
@@ -794,22 +796,35 @@ class DataProfiler:
         return analysis
     
     def save_profile_report(self, profile: Dict[str, Any], output_path: str = "data_profile_report.json") -> str:
-        """Save data profile to JSON file."""
+        """Save data profile to JSON file with proper serialization."""
         # Convert numpy types to native Python types for JSON serialization
         def convert_types(obj):
-            if isinstance(obj, np.integer):
+            if isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
                 return int(obj)
-            elif isinstance(obj, np.floating):
+            elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
                 return float(obj)
             elif isinstance(obj, np.ndarray):
                 return obj.tolist()
+            elif isinstance(obj, pd.Timestamp):
+                return obj.isoformat()
+            elif isinstance(obj, (pd.CategoricalDtype, pd.StringDtype)):
+                return str(obj)
+            elif hasattr(obj, 'dtype') and hasattr(obj.dtype, 'name'):
+                return str(obj.dtype.name)
             elif pd.isna(obj):
                 return None
+            elif isinstance(obj, (pd.Series, pd.Index)):
+                return obj.tolist()
             return obj
         
         def clean_dict(d):
             if isinstance(d, dict):
-                return {k: clean_dict(v) for k, v in d.items()}
+                cleaned = {}
+                for k, v in d.items():
+                    # Convert keys to strings if they aren't already
+                    clean_key = str(k) if not isinstance(k, (str, int, float, bool, type(None))) else k
+                    cleaned[clean_key] = clean_dict(v)
+                return cleaned
             elif isinstance(d, list):
                 return [clean_dict(v) for v in d]
             else:
@@ -817,8 +832,27 @@ class DataProfiler:
         
         clean_profile = clean_dict(profile)
         
-        with open(output_path, 'w') as f:
-            json.dump(clean_profile, f, indent=2, default=str)
-        
-        print(f"Data profile report saved: {output_path}")
-        return output_path
+        try:
+            with open(output_path, 'w') as f:
+                json.dump(clean_profile, f, indent=2, default=str)
+            
+            print(f"Data profile report saved: {output_path}")
+            return output_path
+        except Exception as e:
+            print(f"Error saving profile report: {e}")
+            # Try saving a simplified version
+            simplified_profile = {
+                'overview': clean_profile.get('overview', {}),
+                'data_quality': clean_profile.get('data_quality', {}),
+                'missing_data': clean_profile.get('missing_data', {})
+            }
+            
+            try:
+                simplified_path = output_path.replace('.json', '_simplified.json')
+                with open(simplified_path, 'w') as f:
+                    json.dump(simplified_profile, f, indent=2, default=str)
+                print(f"Simplified profile report saved: {simplified_path}")
+                return simplified_path
+            except Exception as e2:
+                print(f"Could not save profile report: {e2}")
+                return ""
