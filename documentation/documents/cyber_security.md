@@ -1,18 +1,42 @@
 ---
-id: CYBSEC-001
-revision: 1
+qms_version: 2.2.0
+sop_id: 
+sop_version: 
+template_id: CSC F.024
+template_version: 2.0.1
+record_version: 
+record_id: CYBSEC-001
 title: Cybersecurity Risk Management Report
 ---
 
-# Purpose
+# Cyber Security 
+
+## General
+
+
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.024     | 
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                |               |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
+
+
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
+## Purpose
 
 The purpose of this document is to demonstrate the cybersecurity design controls and risk management found in {{device.name}} for FDA reviewers in a format that closely follows the 2018 Draft Guidance, "Content of Premarket Submissions for Management of Cybersecurity in Medical Devices".
 
-# Scope
+## Scope
 
 This document applies to {{device.name}} release {{device.version}}.
 
-# Cybersecurity Risk Tier
+## Cybersecurity Risk Tier
 
 TODO: Select the appropriate cybersecurity risk tier, based on your device. Three possible wordings are provided for your convenience below. Include additional justification for your selection as appropriate.
 
@@ -37,7 +61,7 @@ ENDTODO
 
 [[FDA-CYBER:4.1]]
 
-# System Diagrams
+## System Diagrams
 
 TODO: Add System Diagrams that are sufficiently detailed to permit an understanding of how the specific device design elements are incorporated into a system-level and holistic picture. Analysis of the entire system is necessary to understand the manufacturer’s threat model and the device within the larger ecosystem. System diagrams should include:
 
@@ -53,19 +77,19 @@ ENDTODO
 
 [[These system diagrams fulfill FDA-CYBER:7.A.3, FDA-CYBER:7.A.3.a, FDA-CYBER:7.A.3.b, FDA-CYBER:7.A.3.c, FDA-CYBER:7.A.3.d, and FDA-CYBER:7.A.3.e]]
 
-# Software Updates and Patches
+## Software Updates and Patches
 
 TODO: Write a summary describing the design features that permit validated software updates and patches as needed throughout the life cycle of the medical device to continue to ensure its safety and effectiveness.
 
 [[FDA-CYBER:7.A.4]]
 
-# Cybersecurity Design Controls
+## Cybersecurity Design Controls
 
 TODO: Tier 1 devices should demonstrate how all design controls listed below are implemented. To do this, we recommend listing the associated requirements. Tier 2 devices may provide a risk-based rationale for why specific design controls are not appropriate.
 
 This section enumerates all of the design controls recommended by the FDA for easy review by an FDA auditor.
 
-## Limit Access to Trusted Users & Devices Only
+### Limit Access to Trusted Users & Devices Only
 
 *Limit access to devices through the authentication of users.*
 
@@ -108,7 +132,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 
 [[FDA-CYBER:V.A.1.a.vi]]
 
-# Authenticate and Check Authorization of Safety-Critical Commands
+## Authenticate and Check Authorization of Safety-Critical Commands
 
 
 *Use authentication to prevent unauthorized access to device functions and to prevent unauthorized (arbitrary) software execution.*
@@ -167,7 +191,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.A.1.b.viii]]
 
 
-## Code Integrity
+### Code Integrity
 
 
 *Only allow installation of cryptographically verified firmware/software updates. Ensure that a new update is more recent than the currently installed version to prevent downgrade attacks.*
@@ -184,7 +208,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.A.2.a.ii]]
 
 
-## Data Integrity
+### Data Integrity
 
 
 *Verify the integrity of all incoming data (ensuring it is not modified in transit or at rest, and it is well-formed/compliant with the expected protocol/specification).*
@@ -222,7 +246,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.A.2.b.v]]
 
 
-## Execution Integrity
+### Execution Integrity
 
 *Where feasible, use industry-accepted best practices to maintain/verify integrity of code while it is being executed on the device.*
 
@@ -231,7 +255,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.A.2.c.i]]
 
 
-## Maintain Confidentiality of Data
+### Maintain Confidentiality of Data
 
 *Manufacturers should ensure the confidentiality of any/all data whose disclosure could lead to patient harm (e.g., through use of credentials, encryption). Loss of confidentiality of credentials could be used by a threat to effect multi-patient harm. Lack of encryption to protect sensitive information "at rest" and “in transit” can expose this information to misuse that can lead to patient harm. Other harms, such as loss of confidential protected health information (PHI), are not considered “patient harms” for the purposes of this guidance.*
 
@@ -240,7 +264,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.A.3]]
 
 
-## Detect Cybersecurity Events in a Timely Fashion
+### Detect Cybersecurity Events in a Timely Fashion
 
 *Implement design features that allow for security compromises to be detected, recognized, logged, timed, and acted upon during normal use.*
 
@@ -291,7 +315,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.B.1.g]]
 
 
-## Respond to and Contain the Impact of a Potential Cybersecurity Incident
+### Respond to and Contain the Impact of a Potential Cybersecurity Incident
 
 *The device should be designed to notify users upon detection of a potential cybersecurity breach.*
 
@@ -321,7 +345,7 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 [[FDA-CYBER:V.B.2.d]]
 
 
-## Design the Device to Recover Capabilities or Services that were Impaired Due to a Cybersecurity Incident
+### Design the Device to Recover Capabilities or Services that were Impaired Due to a Cybersecurity Incident
 
 *Implement device features that protect critical functionality and data, even when the device’s cybersecurity has been compromised.*
 
@@ -350,19 +374,19 @@ TODO: demonstrate how this is implemented, e.g., by printing out the associated 
 
 [[FDA-CYBER:V.B.3.e]]
 
-## Additional Controls
+### Additional Controls
 
 TODO: List additional cybersecurity controls here
 
 
-# Risk Management
+## Risk Management
 
-## System Level Threat Model
+### System Level Threat Model
 
 TODO: Create a system level threat model that includes a consideration of system level risks, including but not limited to risks related to the supply chain (e.g., to ensure the device remains free of malware), design, production, and deployment (i.e., into a connected/networked environment). Its possible this could be combined with the systems diagrams.
 
 [[FDA-CYBER:7.B.1]]
 
-## Cybersecurity Risk Assessment
+### Cybersecurity Risk Assessment
 
 TODO: List out all cybersecurity risks. The tables shown here should probably be produced by filtering out data from `risk.yml` somehow. Ideally, the software engineers would be able to use the same process for safety and security risks. Note that TIR57 suggests keeping these processes separate, in part because the cybersecurity risk analysis doesn't require the full multi-domain risk team. That said, we already split the full risk management process from the software-specific risk process, thus splitting it again doesn't make sense. That said, there should probably be one cybersecurity expert on the software team. Perhaps this person should be added to the CODEOWNERS file for parts of the system that involve cybersecurity.

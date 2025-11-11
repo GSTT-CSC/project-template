@@ -1,25 +1,52 @@
 ---
-id: SD-001
-revision: 1
+qms_version: 2.2.0
+sop_id: CSC PR.001
+sop_version: 2.0.1
+template_id: CSC F.017
+template_version: 2.0.1
+record_version:
+record_id: SD-001
 title: Software Description
 ---
 
-# Purpose
+# Software Description
 
-This document provides an overview of the operationally significant features of the software within {{device.name}},
-using a format that is familiar to FDA reviewers.
+## General
 
-[[FDA-SW:sd]]
+|                           |               |
+|---------------------------|---------------|
+| **Template ID**           | CSC F.017     | 
+| **Template Version**      | 2.0.1         |
+| **QMS Version**           | 2.2.0         |
+| **SOP ID**                | CSC PR.001    |
+| **SOP Version**           | 2.0.1         |
+| **Regulatory References** |               |
 
-# Scope
 
-This document applies to {{device.name}} release {{device.version}}.
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
 
-TODO: Read through the sections below and fill in all the details as appropriate. You may want to reference
-[Section VI.B](https://innolitics.com/articles/premarket-submissions-for-device-software-functions/#b-software-description) 
-of the 2021 Draft Guidance titled, "Content of Premarket Submissions for Device Software Functions".
+## Purpose and Scope
 
-# Software Specifics
+This document provides an overview of the operationally significant features of the software within {{device.name}} 
+release {{device.version}}.
+
+## Definitions
+
+| Item | Definition |
+|------|------------|
+|      |            |
+
+## Roles and Responsibilities
+
+| Role | Responsibilities |
+|------|------------------|
+|      |                  |
+
+
+## Software Specifics
 
 **What programming languages and compiler versions are used? What hardware platforms are used?**
 
@@ -38,7 +65,7 @@ explain the differences.**
 
 The intended release version is {{device.version}}. The documentation's version is the same.
 
-# Software Operation
+## Software Operation
 
 **Who operates the software (user)? The patient, a caregiver, a healthcare professional, or a combination thereof?**
 
@@ -71,7 +98,7 @@ identify and address potential biases and limitations of the model(s)?**
 
 TODO: Fill this in, refer to another document, or indicate it's not applicable
 
-# Software Inputs and Outputs
+## Software Inputs and Outputs
 
 **What are the inputs and their format?**
 
@@ -115,7 +142,7 @@ Yes, the software interacts with networked devices.
 
 Yes, the software uses cloud or network storage.
 
-# Other Device Functions
+## Other Device Functions
 
 This device does not contain any other device functions.
 
@@ -129,21 +156,19 @@ For a multiple function device product, the device description should include a 
 that could adversely impact the device function-under-review and should address how the device function-under-review is
 impacted by each of the “other functions.”
 
-If the device function-under-review could be positively impacted by the “other function,” and the labeling reflects the
-positive impact (labeled positive impact), the device description should include the information outlined above in 
+If the device function-under-review could be positively impacted by the “other function,” and the labelling reflects the
+positive impact (labelled positive impact), the device description should include the information outlined above in 
 regard to the positive impact of the “other function” on the device function-under-review.
 
 Sponsors may also describe “other functions” that either do not have an impact or could have a positive impact that is 
-not suggested in the labeling of the device function-under-review, to provide an explanation of how the device functions
+not suggested in the labelling of the device function-under-review, to provide an explanation of how the device functions
 overall.
 
 ENDTODO
 
-[[FDA-SW:sd-other]]
-
-# Additional Information
+## Additional Information
 
 TODO: Consider and provide any additional information that will help capture all of the unique aspects of your device's
 software function and will streamline or further FDA’s understanding of the device’s functionality to facilitate the 
-review of a submission. Additional content should focus on the high risk parts of the device. Note also that more 
+review of a submission. Additional content should focus on the high-risk parts of the device. Note also that more 
 information is not necessarily better. Remove this section if no additional information needs to be added.

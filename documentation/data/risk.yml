@@ -34,20 +34,15 @@ risk_acceptability_matrix:
     - [Low, Low, Medium, Medium, High]
     - [Low, Medium, Medium, High, High]
 risks:
-    - id: hz-1
-      hazard: Incorrect information
-      software_item: Annotation Metric Calculator
-      events: |
-          - A software defect in the Annotation Metric Calculator causes the
-            size an annotated tumor to be significantly under-estimated
-          - The radiologist fails to notice the discrepancy
-      hazardous_situation: The oncologist is presented with incorrect tumor sizes
-      harm: An inappropriate therapy is given to the patient
-      severity: Catastrophic
-      probability: Low
-      control_measures: null
-      residual_severity: null
-      residual_probability: null
-      notes: Although it is not possible to estimate the probability of the
-          software defect occurring, it is unlikely that the radiologist would not
-          noticed the discrepancy.
+    - hazard_id: HZ-001-01
+      hazard: Delays in treatment
+      causes: AIDE unavailable for technical reasons
+      effects: Delays in contouring and planning
+      harm: Patient distress and tumour progression
+      severity: Moderate
+      likelihood: 2
+      risk: 2
+      risk_control: Revert to manual contouring
+      residual_likelihood: 1
+      residual_risk: 1
+      comment:
