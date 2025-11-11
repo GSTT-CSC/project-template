@@ -1,35 +1,36 @@
 ---
-test: 123
+qms_version: 2.2.0
+sop_id: CSC PR.002
+sop_version: 2.0.1
+template_id: CSC F.009
+template_version: 2.0.1
+record_version: 
+record_id: CRMP-001
+title: Clinical Risk Management Plan
 ---
 
 # Clinical Risk Management Plan
 
 ## General
 
----
-test: 123
-Document: ID              
-Author:            
-Revision:         
-Regulatory References:
----
+|                           |              |
+|---------------------------|--------------|
+| **Template ID**           | CSC F.009    |
+| **Template Version**      | 2.0.1        |
+| **QMS Version**           | 2.2.0        |
+| **SOP ID**                | CSC PR.002   |
+| **SOP Version**           | 2.0.1        |
+| **Regulatory References** |              |
 
 
-
-
-|                           |     |
-|---------------------------|-----|
-| **Document ID**           |     |
-| **Author**                |     |
-| **Revision**              |     |
-| **Regulatory References** |     |
-
-
-
+|              |              |
+|--------------|--------------|
+| **Author**   |              |
+| **Approval** |              |
 
 ## Scope
 
-This document applies to the {{device.name}} release {{device.version}}. 
+This document applies to the {{device.name}} version {{device.version}}. 
 
 ## Purpose
 
@@ -54,7 +55,7 @@ The document also provides traceability for risk controls throughout the project
 |----------------------------------|----------|
 | Hazard Log                       | HZ-001   |
 | Clinical Safety Case Report      | CSCR-001 |
-| Verification and Validation Plan | V&V-001  |
+| Verification and Validation Plan | VVP-001  |
 
 
 ## Definitions
@@ -167,10 +168,12 @@ Table X described the acceptability of estimated risks
 
 
 ### Risk Controls
+<!-- [13485:7.2.1a]-->
 
 Where risks exceed the acceptable level, risk controls will be implemented to reduced/remove likelihood of the causes of
-the hazard occurring.
-The effectiveness of each risk control with be verified with a unit test or a manual validation test. 
+the hazard occurring. Risks controls will be reflected a new system requirement item and system design item if not 
+already represented. The effectiveness of each risk control with be verified with a unit test or a manual validation 
+test. 
 
 ### Evaluation of overall residual risk
 
@@ -184,6 +187,7 @@ When the application development has finished and the clinical investigation has
 amendments to the Hazard Log, a Clinical Safety Case report will be approved by CSO. 
 
 ### Deployment and Post-Deployment Activities
+<!-- [13485:7.2.1a]-->
 
 During and after deployment the hazard log will be updated in response to incidents, near misses and post deployment
 surveillance activities. 

@@ -8,11 +8,11 @@ title: Software Plan
 
 This document for the GSTT CSC Team plans how the software in {{device.name}} will be designed, developed, and maintained. It identifies the deliverables, tasks, roles and responsibilities involved in these processes.
 
-{% if device.safety_class == "A" %}
+{% if device.BS62304_class == "A" %}
 
 All software items in {{device.name}} are assigned a Class A software-safety class, which means no injury or damage to health could occur if the software fails [[62304:4.3.a]]. See {{workflow.risk_management_file}} for details.
 
-{% elif device.safety_class == "B" %}
+{% elif device.BS62304_class == "B" %}
 
 All software items in {{device.name}} are assigned a Class B software-safety class, which means non-serious injury could occur if the software fails [[62304:4.3.a]]. See {{workflow.risk_management_file}} for details.
 
@@ -411,7 +411,7 @@ Also, document how the software can be reliably delivered to the point of use wi
 **Verification tasks:** See issue-layer activities
 
 
-{% if device.safety_class != 'A' %}
+{% if device.BS62304_class != 'A' %}
 
 ## Project - Initial Architectural Design
 
@@ -659,7 +659,7 @@ It's critical that the product owner be present during most sprint planning meet
 
     Once you're ready for your changes to be reviewed, you must assign a reviewer to verify the changes. Select a reviewer (or multiple reviewers) as appropriate for the activities you performed. Each activity indicates who must verify the outputs. E.g., some activities require that the project lead be the reviewer.
 
-{% if device.safety_class != 'C' %}
+{% if device.BS62304_class != 'C' %}
 
     Occasionally, due to the absence of other reviewers or due to an internal testing deadline, it may be necessary to skip the pull request review. When this happens, the engineer should justify why a review wasn't necessary within the merge request comments or create a change request or a "TODO" to ensure verification occurs before the next release.
 
@@ -928,7 +928,7 @@ Note that these tasks do not need to be performed in the order they're presented
 
     Show the software and hardware interfaces between the software items and external software [[62304:5.3.2]].
 
-{% if device.safety_class == 'C' %}
+{% if device.BS62304_class == 'C' %}
 
     Identify any segregation between software items that is essential to risk control, and state how to ensure that the segregation is effective. For example, one may segregate software items by running them on different processors [[62304:5.3.5]].
 
@@ -938,7 +938,7 @@ Note that these tasks do not need to be performed in the order they're presented
 
     Textual descriptions are often necessary in addition to architectural diagrams. These detailed designs should be stored as closely as possible to their corresponding source files. (The `rdm collect` subcommand can pull comments from source files into YAML so they can be included in the SDS.)
 
-{% if device.safety_class != 'C' %}
+{% if device.BS62304_class != 'C' %}
 
     Include detailed descriptions if they seem useful.
 
@@ -1104,7 +1104,7 @@ TODO: add a template document for the software risk management file
 
     The `version` of each SOUP is a unique identifier, which specifies the version of the SOUP which is used in the software [[62304:8.1.2.c]]. The version may follow varying formats, such as `1.0.13`, `1.2r5`, or even `2021-05-05`, as appropriate.
 
-{%- if device.safety_class != "A" %}
+{%- if device.BS62304_class != "A" %}
 
     The `purpose` of each SOUP describes the functional and performance requirements that are necessary for its intended use [[62304:5.3.3]].
 
