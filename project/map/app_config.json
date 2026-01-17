@@ -1,0 +1,27 @@
+{
+    "info": {
+        "name": "myApp name",
+        "intended use": "Image classification.", 
+        "application version": "0.0.1",
+        "detector algorithm version": "1",
+        "classifier algorithm version": "1",
+        "manufacturer": "Clinical Scientific Computing, Guy's and St Thomas' NHS Foundation Trust"
+    },
+    "input": {
+        "selection_rules": {
+            "selections": [
+                {
+                    "name": "Example conditions",
+                    "conditions": {
+                        "Modality": "CR"
+                    }
+                }
+            ]
+        }
+    },
+    "resources": {
+        "cpu": 1,
+        "memory": "4Gi",
+        "gpu": 0
+    }
+}
