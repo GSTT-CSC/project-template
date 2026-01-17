@@ -122,9 +122,11 @@ mlruns/
 
 #data
 *.xlsx
-*.csv
 *.ipynb
 *.txt
+!tests/
+!tests/data_NLP/
+*.csv
 
 #git hooks
 .files_exceptions
