@@ -1,0 +1,14 @@
+- role: clinical lead
+  people:
+- role: Clinical Safety Officer
+  people:
+- role: csc_development_lead
+  people:
+- role: csc_ml_lead
+  people:
+- role: stakeholder
+  people:
+- role: hod_for_deployment
+  people:
+- role: staff_training_lead
+  people:

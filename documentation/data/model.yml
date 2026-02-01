@@ -1,0 +1,12 @@
+model_architecture: "model"
+
+MLFlow artefacts:
+# will this path be in project or website repo or elsewhere?
+- image: path/to/performance_image1.png
+  description: "text description"
+- image: image2.png
+  description: "text description"
+
+model_version: "v2.0"
+date:
+pytorch_version:
