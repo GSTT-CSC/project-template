@@ -14,7 +14,7 @@ from timm import create_model
 from timm.data import Mixup
 from torch.nn import CrossEntropyLoss
 from torchmetrics import Accuracy, F1Score
-from src.DataModule import label_dict
+from Classifier_2D.src.data_module import label_dict
 from torchmetrics.classification import MulticlassAUROC
 import numpy as np
 

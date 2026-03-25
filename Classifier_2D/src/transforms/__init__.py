@@ -23,7 +23,7 @@ from monai.transforms import (
     Spacingd,
 )
 
-from src.transforms.LoadImageXNATd import LoadImageXNATd
+from Classifier_2D.src.transforms.load_image_XNATd import LoadImageXNATd
 
 def load_xnat(xnat_configuration: dict):
     """

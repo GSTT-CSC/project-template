@@ -15,7 +15,7 @@ from torch.cuda import is_available
 from torch.utils.data import DataLoader
 
 from src.transforms import normalise, train_augment, output 
-from src.transforms.SafeWrapper import SafeWrapperTransform
+from Classifier_2D.src.transforms.safe_wrapper import SafeWrapperTransform
 
 logger = logging.getLogger(__name__)
 

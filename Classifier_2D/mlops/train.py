@@ -12,10 +12,10 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from ray.air.integrations.mlflow import setup_mlflow
 from torch.cuda import is_available as cuda_available
 
-from src.DataModule import DataModule
-from src.Network import Network
-from src.DataModule import label_dict
-from shared.XNATDataImport import XNATDataImport
+from Classifier_2D.src.data_module import DataModule
+from src.network import Network
+from Classifier_2D.src.data_module import label_dict
+from Classifier_2D.shared.XNAT_data_import import XNATDataImport
 
 logger = logging.getLogger(__name__)
 
