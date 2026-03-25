@@ -1,4 +1,3 @@
-
 import configparser
 import logging
 import multiprocessing
@@ -11,10 +10,11 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.cuda import is_available as cuda_available
 
-from project.DataModule import DataModule
-from project.DataModule import label_dict
-from project.Network import Network
-from project.XNATDataImport import XNATDataImport
+from src.DataModule import DataModule
+from src.DataModule import label_dict
+from src.Network import Network
+from shared.XNATDataImport import XNATDataImport
+from pytorch_lightning.callbacks import EarlyStopping
 
 import optuna
 logger = logging.getLogger(__name__)
@@ -105,6 +105,14 @@ def objective(trial,data,config):
         )
         callbacks.append(checkpoint_callback)
 
+        early_stopping_callback = EarlyStopping(
+            monitor="val_loss",
+            patience=10,
+            mode="min",
+            verbose=True,
+        )
+        callbacks.append(early_stopping_callback)
+
         # configure trainer
         trainer = pl.Trainer(
             precision="32" if cuda_available() else "16",
@@ -171,7 +179,7 @@ def tune(config):
     mlflow.pytorch.autolog(log_models=False)
 
     # Create optuna study (hyperparameter tuning framework)
-    study = optuna.create_study(study_name="scaphx-tune", direction="minimize")
+    study = optuna.create_study(study_name="project-tune", direction="minimize")
     study.optimize(lambda trial: objective(trial, data, config), n_trials=50)
 
     with open(('tune_log.txt'), 'w') as f:

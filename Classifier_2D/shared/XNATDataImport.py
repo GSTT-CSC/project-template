@@ -2,7 +2,7 @@ import logging
 from tqdm import tqdm
 from typing import List
 
-from utils.tools import DataBuilderXNAT
+from src.utils.tools import DataBuilderXNAT
 from xnat.mixin import ImageScanData, SubjectData
 
 from src.transforms import load_xnat

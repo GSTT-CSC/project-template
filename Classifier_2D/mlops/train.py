@@ -15,7 +15,7 @@ from torch.cuda import is_available as cuda_available
 from src.DataModule import DataModule
 from src.Network import Network
 from src.DataModule import label_dict
-from src.XNATDataImport import XNATDataImport
+from shared.XNATDataImport import XNATDataImport
 
 logger = logging.getLogger(__name__)
 
