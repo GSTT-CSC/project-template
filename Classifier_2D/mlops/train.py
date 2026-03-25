@@ -8,12 +8,11 @@ import json
 import mlflow
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-from ray.air.integrations.mlflow import setup_mlflow
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from torch.cuda import is_available as cuda_available
 
 from Classifier_2D.src.data_module import DataModule
-from src.network import Network
+from Classifier_2D.src.network import Network
 from Classifier_2D.src.data_module import label_dict
 from Classifier_2D.shared.XNAT_data_import import XNATDataImport
 
@@ -48,14 +47,6 @@ def train(config):
     data = importer.xnat_image_download(raw_data)
  
     # Set up mflow experiment
-    setup_mlflow(
-        tracking_uri=mlflow.get_tracking_uri(),
-        experiment_id=mlflow.get_experiment_by_name(
-            config["project"]["name"]
-        ).experiment_id
-        if mlflow.get_experiment_by_name(config["project"]["name"])
-        else mlflow.create_experiment(config["project"]["name"]),
-    )
     with mlflow.start_run(nested=True):
         save_best_model = True
 
@@ -94,6 +85,10 @@ def train(config):
         )
 
         # Callbacks
+        checkpoint_metric = config['params']['checkpoint_metric']
+        checkpoint_mode = "min" if checkpoint_metric == "val_loss" else "max"
+        
+        # Callbacks
         callbacks = []
         callbacks.append(LearningRateMonitor(logging_interval="step"))
         checkpoint_callback = ModelCheckpoint(
@@ -103,6 +98,14 @@ def train(config):
             dirpath="./checkpoint/",
         )
         callbacks.append(checkpoint_callback)
+
+        early_stopping_callback = EarlyStopping(
+            monitor=checkpoint_metric,
+            patience=10,
+            mode=checkpoint_mode,
+            verbose=True,
+        )
+        callbacks.append(early_stopping_callback)
 
         # configure trainer
         trainer = pl.Trainer(

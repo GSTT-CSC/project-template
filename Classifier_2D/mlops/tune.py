@@ -5,16 +5,13 @@ import os
 
 import mlflow
 import pytorch_lightning as pl
-from ray.air.integrations.mlflow import setup_mlflow
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from torch.cuda import is_available as cuda_available
 
 from Classifier_2D.src.data_module import DataModule
 from Classifier_2D.src.data_module import label_dict
-from src.network import Network
+from Classifier_2D.src.network import Network
 from Classifier_2D.shared.XNAT_data_import import XNATDataImport
-from pytorch_lightning.callbacks import EarlyStopping
 
 import optuna
 logger = logging.getLogger(__name__)
@@ -166,15 +163,6 @@ def tune(config):
     # Download images from XNAT
     data = importer.xnat_image_download(raw_data)
     
-    # Set up mflow experiment
-    setup_mlflow(
-        tracking_uri=mlflow.get_tracking_uri(),
-        experiment_id=mlflow.get_experiment_by_name(
-            config["project"]["name"]
-        ).experiment_id
-        if mlflow.get_experiment_by_name(config["project"]["name"])
-        else mlflow.create_experiment(config["project"]["name"]),
-    )
 
     mlflow.pytorch.autolog(log_models=False)
 
