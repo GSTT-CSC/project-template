@@ -3,7 +3,6 @@ import json
 import logging
 import multiprocessing
 import os
-import sys
 
 import mlflow
 import pytorch_lightning as pl
