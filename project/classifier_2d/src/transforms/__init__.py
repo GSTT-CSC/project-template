@@ -1,29 +1,29 @@
 import torch
 from monai.transforms import (
-    LoadImage,
-    SqueezeDimd,
-    EnsureChannelFirstd,
-    CropForegroundd,
-    Resized,
-    ScaleIntensityd,
     CastToTyped,
-    RandFlipd,
-    RandZoomd,
-    RandRotated,
+    CropForegroundd,
+    EnsureChannelFirstd,
+    EnsureTyped,
+    LoadImage,
+    RandAdjustContrastd,
     RandAffined,
+    RandCoarseDropoutd,
+    RandFlipd,
     RandGaussianNoised,
     RandGaussianSmoothd,
+    RandRotated,
     RandScaleIntensityd,
-    RandAdjustContrastd,
-    RandCoarseDropoutd,
+    RandZoomd,
     ResizeWithPadOrCropd,
-    ToTensord,
+    Resized,
+    ScaleIntensityd,
     SelectItemsd,
-    EnsureTyped,
     Spacingd,
+    SqueezeDimd,
+    ToTensord,
 )
 
-from Project.Classifier_2D.src.transforms.load_image_XNATd import LoadImageXNATd
+from src.transforms.load_image_xnatd import LoadImageXNATd
 
 def load_xnat(xnat_configuration: dict):
     """
