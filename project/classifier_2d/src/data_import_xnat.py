@@ -2,12 +2,12 @@ import logging
 from tqdm import tqdm
 from typing import List
 
-from Project.Classifier_2D.src.utils.tools import DataBuilderXNAT
-from xnat.mixin import ImageScanData, SubjectData
-
-from Project.Classifier_2D.src.transforms import load_xnat
 from monai.data import Dataset
 from torch.utils.data import DataLoader
+from xnat.mixin import ImageScanData, SubjectData
+
+from src.transforms import load_xnat
+from src.utils.tools import DataBuilderXNAT
 
 logger = logging.getLogger(__name__)
 
