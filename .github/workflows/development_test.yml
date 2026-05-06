@@ -4,7 +4,7 @@
 name: Development tests
 
 on:
-  pull_request:
+  workflow_dispatch:  # manual trigger only
 
 env:
   PROJECT_NAME: template  # the project name
