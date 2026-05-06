@@ -9,11 +9,9 @@ import time
 
 import xnat
 from monai.config import KeysCollection
-from monai.transforms import MapTransform, LoadImage
-from monai.transforms import Transform
+from monai.transforms import MapTransform, LoadImage, Transform
 
 logger = logging.getLogger(__name__)
-
 
 class LoadImageXNATd(MapTransform):
     """
