@@ -1,25 +1,22 @@
 import logging
-import pytorch_lightning
-import mlflow
-import torch
 from abc import ABC
+
+import mlflow
+import numpy as np
+import pytorch_lightning
+import torch
 from monai.data import decollate_batch
-from monai.transforms import (
-    AsDiscrete,
-    Compose,
-    Activations,
-)
-from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay, recall_score
+from monai.transforms import Activations, AsDiscrete, Compose
+from sklearn.metrics import ClassificationReport, ConfusionMatrixDisplay, confusion_matrix, recall_score
 from timm import create_model
 from timm.data import Mixup
 from torch.nn import CrossEntropyLoss
 from torchmetrics import Accuracy, F1Score
-from src.DataModule import label_dict
 from torchmetrics.classification import MulticlassAUROC
-import numpy as np
+
+from src.datamodule import label_dict
 
 logger = logging.getLogger(__name__)
-
 
 class Network(pytorch_lightning.LightningModule, ABC):
     """

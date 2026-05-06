@@ -1,3 +1,5 @@
+# 2D Classifier THIS NEEDS UPDATING
+
 ## Example Workflow:
 
 #### 1. Adapt XNATDataImport.py for your data
@@ -58,3 +60,5 @@ This dockerfile sets up the Docker image that the MLOps run will utilise.
 
 In the example this is just a simple environment running python version 3.10.
 You will most likely need to adapt this for your project.
+
+

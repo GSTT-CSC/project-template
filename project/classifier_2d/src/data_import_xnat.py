@@ -2,16 +2,16 @@ import logging
 from tqdm import tqdm
 from typing import List
 
-from utils.tools import DataBuilderXNAT
+from monai.data import Dataset
+from torch.utils.data import DataLoader
 from xnat.mixin import ImageScanData, SubjectData
 
 from src.transforms import load_xnat
-from monai.data import Dataset
-from torch.utils.data import DataLoader
+from src.utils.tools import DataBuilderXNAT
 
 logger = logging.getLogger(__name__)
 
-class XNATDataImport():
+class DataImportXNAT():
     
     def __init__(self, xnat_configuration: dict = None, num_workers: int = 4, test_batch: int = 0,
                  n_month_data_window=9999, run_type: str='train'):

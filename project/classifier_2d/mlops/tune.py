@@ -1,22 +1,18 @@
-
 import configparser
 import logging
 import multiprocessing
 import os
 
 import mlflow
+import optuna
 import pytorch_lightning as pl
-from ray.air.integrations.mlflow import setup_mlflow
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from torch.cuda import is_available as cuda_available
 
-from project.DataModule import DataModule
-from project.DataModule import label_dict
-from project.Network import Network
-from project.XNATDataImport import XNATDataImport
+from src.data_import_xnat import DataImportXNAT
+from src.datamodule import DataModule, label_dict
+from src.network import Network
 
-import optuna
 logger = logging.getLogger(__name__)
 
 # Obtain hyperparameters for this trial
@@ -105,6 +101,14 @@ def objective(trial,data,config):
         )
         callbacks.append(checkpoint_callback)
 
+        early_stopping_callback = EarlyStopping(
+            monitor="val_loss",
+            patience=10,
+            mode="min",
+            verbose=True,
+        )
+        callbacks.append(early_stopping_callback)
+
         # configure trainer
         trainer = pl.Trainer(
             precision="32" if cuda_available() else "16",
@@ -147,7 +151,7 @@ def tune(config):
         else multiprocessing.cpu_count()
     )
 
-    importer = XNATDataImport(
+    importer = DataImportXNAT(
         xnat_configuration = xnat_configuration,
         num_workers = num_workers
         )
@@ -158,20 +162,11 @@ def tune(config):
     # Download images from XNAT
     data = importer.xnat_image_download(raw_data)
     
-    # Set up mflow experiment
-    setup_mlflow(
-        tracking_uri=mlflow.get_tracking_uri(),
-        experiment_id=mlflow.get_experiment_by_name(
-            config["project"]["name"]
-        ).experiment_id
-        if mlflow.get_experiment_by_name(config["project"]["name"])
-        else mlflow.create_experiment(config["project"]["name"]),
-    )
 
     mlflow.pytorch.autolog(log_models=False)
 
     # Create optuna study (hyperparameter tuning framework)
-    study = optuna.create_study(study_name="scaphx-tune", direction="minimize")
+    study = optuna.create_study(study_name="project-tune", direction="minimize")
     study.optimize(lambda trial: objective(trial, data, config), n_trials=50)
 
     with open(('tune_log.txt'), 'w') as f:
