@@ -1,7 +1,6 @@
-# Wrapper for Monai Transforms so failures are logged instead of run ending
-
-import os
+"""Wrapper for Monai Transforms so failures are logged instead of run ending."""
 import csv
+import os
 import torch
 
 class SafeWrapperTransform:

@@ -1,6 +1,4 @@
-"""
-MONAI MapTransform for importing image data from XNAT
-"""
+"""MONAI MapTransform for importing image data from XNAT."""
 import glob
 import logging
 import os
@@ -9,14 +7,12 @@ import time
 
 import xnat
 from monai.config import KeysCollection
-from monai.transforms import MapTransform, LoadImage, Transform
+from monai.transforms import LoadImage, MapTransform, Transform
 
 logger = logging.getLogger(__name__)
 
 class LoadImageXNATd(MapTransform):
-    """
-    MapTransform for importing image data from XNAT
-    """
+    """MapTransform for importing image data from XNAT."""
 
     def __init__(self, keys: KeysCollection, xnat_configuration: dict = None,
                  image_loader: Transform = LoadImage(), validate_data: bool = False,
