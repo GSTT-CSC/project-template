@@ -10,7 +10,6 @@ import xnat
 
 logger = logging.getLogger(__name__)
 
-
 class DataBuilderXNAT:
 
     def __init__(self, xnat_configuration: dict, actions: list = None, flatten_output=True, test_batch: int = -1,
