@@ -4,16 +4,15 @@ import multiprocessing
 import os
 
 import mlflow
+import optuna
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, EarlyStopping
 from torch.cuda import is_available as cuda_available
 
-from Project.Classifier_2D.src.data_module import DataModule
-from Project.Classifier_2D.src.data_module import label_dict
-from Project.Classifier_2D.src.network import Network
-from Project.Classifier_2D.src.utils.XNAT_data_import import XNATDataImport
+from src.data_import_xnat import DataImportXNAT
+from src.datamodule import DataModule, label_dict
+from src.network import Network
 
-import optuna
 logger = logging.getLogger(__name__)
 
 # Obtain hyperparameters for this trial
@@ -152,7 +151,7 @@ def tune(config):
         else multiprocessing.cpu_count()
     )
 
-    importer = XNATDataImport(
+    importer = DataImportXNAT(
         xnat_configuration = xnat_configuration,
         num_workers = num_workers
         )
