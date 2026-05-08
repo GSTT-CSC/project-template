@@ -149,8 +149,8 @@ def train(config):
         ]  # remove the temporary files after logging to mlflow
 
         # Prepare config for mlflow logging
-        useful_keys = ['system',
-                    'project',
+        useful_keys = ['project',
+                    'system',
                     'params',
                 ]
 
