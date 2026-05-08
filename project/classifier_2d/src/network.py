@@ -19,6 +19,7 @@ from torchmetrics import Accuracy, F1Score
 from torchmetrics.classification import MulticlassAUROC
 
 from src.datamodule import label_dict
+from src.utils import get_loss_function
 
 logger = logging.getLogger(__name__)
 
@@ -30,16 +31,18 @@ class Network(pytorch_lightning.LightningModule, ABC):
     """
 
     def __init__(self,
+                n_classes,
                 model_name,
                 pretrained,
-                n_classes,
-                dropout,
-                weighted_loss,
-                train_class_weights,
-                validation_class_weights,
                 learning_rate,
                 max_lr,
                 batch_size,
+                dropout,
+                train_class_weights,
+                validation_class_weights,
+                weighted_loss,
+                loss_fcn,
+                weight_decay,
                 mixup_alpha,
                 cutmix_alpha,
                 mixup_prob,
@@ -77,18 +80,19 @@ class Network(pytorch_lightning.LightningModule, ABC):
         self.weighted_loss = weighted_loss
         self.train_class_weights = train_class_weights
         self.validation_class_weights = validation_class_weights
+        self.loss_fcn = loss_fcn
 
-        self.train_loss_function = CrossEntropyLoss(
-            weight=torch.tensor(self.train_class_weights)
-            if self.weighted_loss
-            else None
-        )
+        if self.weighted_loss:
+            self.register_buffer('train_class_weights_tensor',
+                                torch.tensor(train_class_weights, dtype=torch.float32))
+            self.register_buffer('validation_class_weights_tensor',
+                                torch.tensor(validation_class_weights, dtype=torch.float32))
+        else:
+            self.train_class_weights_tensor = None
+            self.validation_class_weights_tensor = None
 
-        self.validation_loss_function = CrossEntropyLoss(
-            weight=torch.tensor(self.validation_class_weights)
-            if self.weighted_loss
-            else None
-        )
+        self.train_loss_function = get_loss_function(loss_fcn, weight=self.train_class_weights_tensor, label_smoothing=self.label_smoothing)
+        self.validation_loss_function = get_loss_function(loss_fcn, weight=self.validation_class_weights_tensor)
 
         self.mixup_fn = Mixup(
             mixup_alpha=mixup_alpha,
@@ -159,7 +163,9 @@ class Network(pytorch_lightning.LightningModule, ABC):
         return {"loss": loss, 'y_onehot': y_onehot, 'y_pred_act': y_pred_act}
 
     def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
+        optimizer = torch.optim.AdamW(self.parameters(),
+                                    lr=self.learning_rate,
+                                    weight_decay=self.weight_decay)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer, max_lr=self.max_lr, total_steps=self.trainer.estimated_stepping_batches
         )

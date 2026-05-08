@@ -70,16 +70,18 @@ def train(config):
         validation_class_weights = dm.data_manifest["validation"]["class_weights"]
 
         net = Network(
+            n_classes = n_classes,
             model_name = config['params']['model'],
             pretrained = config['params']['pretrained'],
-            n_classes = n_classes,
-            dropout = float(config['params']['dropout']),
-            weighted_loss = config['params']['weighted_loss'],
-            train_class_weights = train_class_weights,
-            validation_class_weights = validation_class_weights,
             learning_rate = float(config['params']['lr']),
             max_lr = float(config['params']['max_lr']),
             batch_size = int(config['params']['batch_size']),
+            dropout = float(config['params']['dropout']),
+            train_class_weights = train_class_weights,
+            validation_class_weights = validation_class_weights,
+            weighted_loss = config['params']['weighted_loss'],
+            loss_fcn = config['params']['loss_fcn'],
+            weight_decay = float(config['params']['weight_decay']),
             mixup_alpha = float(config['params']['mixup_alpha']),
             cutmix_alpha = float(config['params']['cutmix_alpha']),
             mixup_prob = float(config['params']['mixup_prob']),
