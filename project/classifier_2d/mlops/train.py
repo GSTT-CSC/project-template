@@ -99,8 +99,8 @@ def train(config):
         callbacks.append(LearningRateMonitor(logging_interval="step"))
         checkpoint_callback = ModelCheckpoint(
             save_top_k=1,
-            monitor="val_loss",
-            mode="min",
+            monitor=checkpoint_metric,
+            mode=checkpoint_mode,
             dirpath="./checkpoint/",
         )
         callbacks.append(checkpoint_callback)
