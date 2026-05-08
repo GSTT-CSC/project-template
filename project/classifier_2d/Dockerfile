@@ -1,6 +1,6 @@
 FROM python:3.10
 
-WORKDIR /train
+WORKDIR /project
 
 ENV DEBIAN_FRONTEND=noninteractive
 
