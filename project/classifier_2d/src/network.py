@@ -7,7 +7,7 @@ import pytorch_lightning
 import torch
 from monai.data import decollate_batch
 from monai.transforms import Activations, AsDiscrete, Compose
-from sklearn.metrics import ClassificationReport, ConfusionMatrixDisplay, confusion_matrix, recall_score
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay, confusion_matrix, recall_score
 from timm import create_model
 from timm.data import Mixup
 from torch.nn import CrossEntropyLoss
