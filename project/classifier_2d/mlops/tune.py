@@ -87,6 +87,11 @@ def objective(trial,data,config):
             learning_rate = params['lr'],
             max_lr = params['max_lr'],
             nw_batch_size = params['batch_size'],
+            mixup_alpha = float(config['params']['mixup_alpha']),
+            cutmix_alpha = float(config['params']['cutmix_alpha']),
+            mixup_prob = float(config['params']['mixup_prob']),
+            mixup_switch_prob = float(config['params']['mixup_switch_prob']),
+            mixup_mode = config['params']['mixup_mode'],
             label_smoothing = params['label_smoothing']
         )
 

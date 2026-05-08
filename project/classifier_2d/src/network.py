@@ -40,6 +40,11 @@ class Network(pytorch_lightning.LightningModule, ABC):
                 learning_rate,
                 max_lr,
                 nw_batch_size,
+                mixup_alpha,
+                cutmix_alpha,
+                mixup_prob,
+                mixup_switch_prob,
+                mixup_mode,
                 label_smoothing,
                 **kwargs):
         super().__init__()
@@ -86,12 +91,12 @@ class Network(pytorch_lightning.LightningModule, ABC):
         )
 
         self.mixup_fn = Mixup(
-            mixup_alpha = 0.2,
-            cutmix_alpha = 0.2,
-            prob=0.5,
-            switch_prob=0.5,
-            mode='batch',
-            label_smoothing=0.1,
+            mixup_alpha=mixup_alpha,
+            cutmix_alpha=cutmix_alpha,
+            prob=mixup_prob,
+            switch_prob=mixup_switch_prob,
+            mode=mixup_mode,
+            label_smoothing=self.label_smoothing,
             num_classes=self.n_classes,
         )
 

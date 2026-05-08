@@ -80,6 +80,11 @@ def train(config):
             learning_rate = float(config['params']['lr']),
             max_lr = float(config['params']['max_lr']),
             nw_batch_size = int(config['params']['nw_batch_size']),
+            mixup_alpha = float(config['params']['mixup_alpha']),
+            cutmix_alpha = float(config['params']['cutmix_alpha']),
+            mixup_prob = float(config['params']['mixup_prob']),
+            mixup_switch_prob = float(config['params']['mixup_switch_prob']),
+            mixup_mode = config['params']['mixup_mode'],
             label_smoothing = float(config['params']['label_smoothing']),
         )
 
