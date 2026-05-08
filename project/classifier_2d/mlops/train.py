@@ -47,7 +47,6 @@ def train(config):
  
     # Set up mflow experiment
     with mlflow.start_run(nested=True):
-        save_best_model = True
 
         mlflow.pytorch.autolog(log_models=False)
 
@@ -127,28 +126,27 @@ def train(config):
 
         trainer.fit(net, dm)
 
-        if save_best_model:
-            checkpoint = torch.load(checkpoint_callback.best_model_path)
-            net.load_state_dict(checkpoint['state_dict'])
-            file_path = f"model-{config['project']['name']}-{mlflow.active_run().info.run_name}.pt"
-            script = net.to_torchscript(file_path=file_path)
-            
-            checkpoint_info = {}
-            checkpoint_info["monitored_metric"] = checkpoint_callback.monitor
-            checkpoint_info["metric_value"] = checkpoint_callback.best_model_score.item()
-            checkpoint_info["mode"] = checkpoint_callback.mode
-            checkpoint_info["epoch"] = checkpoint["epoch"]
+        checkpoint = torch.load(checkpoint_callback.best_model_path)
+        net.load_state_dict(checkpoint['state_dict'])
+        file_path = f"model-{config['project']['name']}-{mlflow.active_run().info.run_name}.pt"
+        script = net.to_torchscript(file_path=file_path)
+        
+        checkpoint_info = {}
+        checkpoint_info["monitored_metric"] = checkpoint_callback.monitor
+        checkpoint_info["metric_value"] = checkpoint_callback.best_model_score.item()
+        checkpoint_info["mode"] = checkpoint_callback.mode
+        checkpoint_info["epoch"] = checkpoint["epoch"]
 
-            with open("checkpoint_info.json", "w") as f:
-                json.dump(checkpoint_info, f, indent=2)
+        with open("checkpoint_info.json", "w") as f:
+            json.dump(checkpoint_info, f, indent=2)
 
-            mlflow.pytorch.log_model(
-                script, file_path, extra_files=["checkpoint_info.json"]
-            )
+        mlflow.pytorch.log_model(
+            script, file_path, extra_files=["checkpoint_info.json"]
+        )
 
-            _ = [
-                os.remove(fp) for fp in ["checkpoint_info.json"]
-            ]  # remove the temporary files after logging to mlflow
+        _ = [
+            os.remove(fp) for fp in ["checkpoint_info.json"]
+        ]  # remove the temporary files after logging to mlflow
 
         # Prepare config for mlflow logging
         useful_keys = ['system',
