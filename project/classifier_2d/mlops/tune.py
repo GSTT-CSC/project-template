@@ -43,7 +43,7 @@ def suggest_hyperparameters(trial):
 
 def objective(trial,data,config):
 
-    max_workers = 32
+    max_workers = config['system']['MAX_WORKERS']
     num_workers = (
         max_workers
         if max_workers < multiprocessing.cpu_count()
