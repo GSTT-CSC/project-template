@@ -208,7 +208,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
             self._create_classification_report(preds, labels)
             self._create_confusion_matrix(preds, labels)
 
-    def validation_epoch_end(self, validation_step_outputs) -> None:
+    def on_validation_epoch_end(self):
         if self.current_epoch % self.report_interval == 0:
             self._attribute(n_samples_plot=4, step_type='validation')
 
