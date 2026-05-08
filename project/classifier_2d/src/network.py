@@ -20,7 +20,6 @@ from torch.utils.data import DataLoader, Subset
 from torchmetrics import Accuracy, F1Score, FBetaScore, Precision, Recall
 from torchmetrics.classification import MulticlassAUROC, BinaryPrecisionRecallCurve
 
-from src.datamodule import label_dict
 from src.utils import get_loss_function
 
 logger = logging.getLogger(__name__)
@@ -34,6 +33,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
     def __init__(self,
                 n_classes,
+                label_dict,
                 model_name,
                 pretrained,
                 learning_rate,

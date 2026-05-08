@@ -11,7 +11,7 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, Mode
 from torch.cuda import is_available as cuda_available
 
 from src.data_import_xnat import DataImportXNAT
-from src.datamodule import DataModule, label_dict
+from src.datamodule import DataModule
 from src.network import Network
 
 logger = logging.getLogger(__name__)
@@ -45,6 +45,8 @@ def train(config):
     # Download images from XNAT
     data = importer.xnat_image_download(raw_data)
  
+    label_dict = json.loads(config['project']['label_dict'])
+
     # Set up mflow experiment
     with mlflow.start_run(nested=True):
 
@@ -53,6 +55,7 @@ def train(config):
         # initialise network and datamodule
         dm = DataModule(
             data = data,
+            label_dict = label_dict,
             batch_size = int(config['params']['batch_size']),
             test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
@@ -61,7 +64,7 @@ def train(config):
         )
 
         dm.setup()
-        
+
         n_classes = len(set([x for x in label_dict.values() if x is not None]))
         mlflow.log_param('n_classes', n_classes)
 
@@ -70,6 +73,7 @@ def train(config):
 
         net = Network(
             n_classes = n_classes,
+            label_dict = label_dict,
             model_name = config['params']['model'],
             pretrained = config['params']['pretrained'],
             learning_rate = float(config['params']['lr']),

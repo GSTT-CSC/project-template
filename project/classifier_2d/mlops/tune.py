@@ -10,7 +10,9 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, Ea
 from torch.cuda import is_available as cuda_available
 
 from src.data_import_xnat import DataImportXNAT
-from src.datamodule import DataModule, label_dict
+import json
+
+from src.datamodule import DataModule
 from src.network import Network
 
 logger = logging.getLogger(__name__)
@@ -56,9 +58,12 @@ def objective(trial,data,config):
         params = suggest_hyperparameters(trial)
         mlflow.log_params(params)
   
+        label_dict = json.loads(config['project']['label_dict'])
+
         # initialise network and datamodule
         dm = DataModule(
             data = data,
+            label_dict = label_dict,
             batch_size = params['batch_size'],
             test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
@@ -67,7 +72,7 @@ def objective(trial,data,config):
         )
 
         dm.setup()
-        
+
         n_classes = len(set([x for x in label_dict.values() if x is not None]))
         mlflow.log_param('n_classes', n_classes)
 
@@ -76,6 +81,7 @@ def objective(trial,data,config):
 
         net = Network(
             n_classes = n_classes,
+            label_dict = label_dict,
             model_name = params['model'],
             pretrained = params['pretrained'],
             learning_rate = params['lr'],
@@ -92,7 +98,7 @@ def objective(trial,data,config):
             mixup_prob = float(config['params']['mixup_prob']),
             mixup_switch_prob = float(config['params']['mixup_switch_prob']),
             mixup_mode = config['params']['mixup_mode'],
-            label_smoothing = params['label_smoothing']
+            label_smoothing = params['label_smoothing'],
         )
 
         # Callbacks
