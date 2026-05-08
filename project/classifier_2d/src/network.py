@@ -10,13 +10,15 @@ import torch
 from captum.attr import Occlusion
 from monai.data import decollate_batch
 from monai.transforms import Activations, AsDiscrete, Compose
-from sklearn.metrics import classification_report, ConfusionMatrixDisplay, confusion_matrix, recall_score
+from sklearn.metrics import (classification_report,
+                             ConfusionMatrixDisplay, confusion_matrix,
+                             precision_recall_curve, roc_curve, auc, average_precision_score,
+                             precision_score, recall_score, f1_score)
 from timm import create_model
 from timm.data import Mixup
-from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader, Subset
-from torchmetrics import Accuracy, F1Score
-from torchmetrics.classification import MulticlassAUROC
+from torchmetrics import Accuracy, F1Score, FBetaScore, Precision, Recall
+from torchmetrics.classification import MulticlassAUROC, BinaryPrecisionRecallCurve
 
 from src.datamodule import label_dict
 from src.utils import get_loss_function
@@ -65,9 +67,22 @@ class Network(pytorch_lightning.LightningModule, ABC):
         self.max_lr = max_lr
         self.batch_size = batch_size
 
-        self.val_acc = Accuracy(task="multiclass", num_classes=self.n_classes, top_k=1)
-        self.val_f1 = F1Score(task="multiclass", num_classes=self.n_classes, top_k=1)
+        task = "binary" if self.n_classes == 2 else "multiclass"
+        self.train_acc = Accuracy(task=task, num_classes=self.n_classes, top_k=1)
+        self.train_f1 = F1Score(task=task, num_classes=self.n_classes, top_k=1)
+        self.train_f05 = FBetaScore(task=task, num_classes=self.n_classes, beta=0.5)
+        self.train_precision = Precision(task=task, num_classes=self.n_classes)
+        self.train_recall = Recall(task=task, num_classes=self.n_classes)
+        self.train_auroc = MulticlassAUROC(num_classes=self.n_classes, average='macro', thresholds=None)
+        self.train_pr_curve = BinaryPrecisionRecallCurve()
+
+        self.val_acc = Accuracy(task=task, num_classes=self.n_classes, top_k=1)
+        self.val_f1 = F1Score(task=task, num_classes=self.n_classes, top_k=1)
+        self.val_f05 = FBetaScore(task=task, num_classes=self.n_classes, beta=0.5)
+        self.val_precision = Precision(task=task, num_classes=self.n_classes)
+        self.val_recall = Recall(task=task, num_classes=self.n_classes)
         self.val_auroc = MulticlassAUROC(num_classes=self.n_classes, average='macro', thresholds=None)
+        self.val_pr_curve = BinaryPrecisionRecallCurve()
 
         self.targets, self.labels = list(
             map(list, zip(*[(target, label) for target, label in label_dict.items() if label is not None])))
@@ -81,6 +96,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
         self.train_class_weights = train_class_weights
         self.validation_class_weights = validation_class_weights
         self.loss_fcn = loss_fcn
+        self.weight_decay = weight_decay
 
         if self.weighted_loss:
             self.register_buffer('train_class_weights_tensor',
@@ -116,16 +132,48 @@ class Network(pytorch_lightning.LightningModule, ABC):
         """
         valid_mask = batch['valid'].bool()
         if valid_mask.sum() == 0:
-            return None
+            return torch.tensor(0.0, requires_grad=True, device=self.device)
 
         x = batch['image'][valid_mask]
         y = batch['label'][valid_mask]
+
+        valid_labels_mask = y >= 0
+        if valid_labels_mask.sum() == 0:
+            return torch.tensor(0.0, requires_grad=True, device=self.device)
+        
+        x = x[valid_labels_mask]
+        y = y[valid_labels_mask]
+        y_original = y.clone()
+
         if x.size(0) % 2 == 0:
             x, y = self.mixup_fn(x, y)
 
         y_hat = self(x)
         loss = self.train_loss_function(y_hat, y)
         self.log('train_loss', loss, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        # log metrics but expect acc and F1 score to be reduced if mixup is used
+        train_probs = torch.softmax(y_hat, dim=1)[:, 1] if self.n_classes == 2 else y_hat
+        
+        self.train_acc(train_probs, y_original)
+        self.log('train_acc', self.train_acc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_f1(train_probs, y_original)
+        self.log('train_f1', self.train_f1, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_f05(train_probs, y_original)
+        self.log('train_f05', self.train_f05, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_precision(train_probs, y_original)
+        self.log('train_precision', self.train_precision, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_recall(train_probs, y_original)
+        self.log('train_recall', self.train_recall, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_auroc(y_hat, y_original)
+        self.log('train_auroc', self.train_auroc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.train_pr_curve.update(train_probs, y_original)
 
         return loss
 
@@ -138,27 +186,47 @@ class Network(pytorch_lightning.LightningModule, ABC):
         """
         valid_mask = batch['valid'].bool()
         if valid_mask.sum() == 0:
-            return None
+            return torch.tensor(0.0, device=self.device)
 
         x = batch['image'][valid_mask]
         y = batch['label'][valid_mask]
+
+        valid_labels_mask = y >= 0
+        if valid_labels_mask.sum() == 0:
+            return torch.tensor(0.0, device=self.device)
+
+        x = x[valid_labels_mask]
+        y = y[valid_labels_mask]
         y_hat = self(x)
 
         loss = self.validation_loss_function(y_hat, y)
         self.log('val_loss', loss, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
 
         # additional metrics
-        self.val_acc(y_hat, y)
+        val_probs = torch.softmax(y_hat, dim=1)[:, 1] if self.n_classes == 2 else y_hat
+        
+        self.val_acc(val_probs, y)
         self.log('val_acc', self.val_acc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
 
-        y_onehot = [self.y_trans(i) for i in decollate_batch(y, detach=True)]
-        y_pred_act = [self.y_pred_trans(i) for i in decollate_batch(y_hat, detach=True)]
-
-        self.val_f1(y_hat, y)
+        self.val_f1(val_probs, y)
         self.log('val_f1', self.val_f1, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
 
         self.val_auroc(y_hat, y)
         self.log('val_auroc', self.val_auroc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.val_f05(val_probs, y)
+        self.log('val_f05', self.val_f05, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.val_precision(val_probs, y)
+        self.log('val_precision', self.val_precision, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.val_recall(val_probs, y)
+        self.log('val_recall', self.val_recall, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.val_pr_curve.update(val_probs, y)
+
+        y_onehot = [self.y_trans(i) for i in decollate_batch(y, detach=True)]
+        y_pred_act = [self.y_pred_trans(i) for i in decollate_batch(y_hat, detach=True)]
 
         return {"loss": loss, 'y_onehot': y_onehot, 'y_pred_act': y_pred_act}
 
