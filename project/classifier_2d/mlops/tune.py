@@ -19,14 +19,13 @@ logger = logging.getLogger(__name__)
 def suggest_hyperparameters(trial):
 
     dropout = trial.suggest_float("dropout", 0.0, 0.3, step=0.1)
-    lr = trial.suggest_float("lr", 1e-4, 5e-4, log=True)
-    max_lr = trial.suggest_categorical("max_lr",[5e-4,1e-3])
+    lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
+    max_lr = trial.suggest_categorical("max_lr",[1e-4,5e-4,1e-3,5e-3])
     model = trial.suggest_categorical("model", ["convnextv2_tiny.fcmae_ft_in22k_in1k","convnextv2_base.fcmae_ft_in22k_in1k"])
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
-    pretrained = trial.suggest_categorical("pretrained", ["TRUE"])
-    label_smoothing = trial.suggest_float("label_smoothing", 0.0, 0.1)
+    pretrained = trial.suggest_categorical("pretrained", [True, False])
+    label_smoothing = trial.categorical("label_smoothing", [0.0, 0.5, 0.1])
     grad_batches = trial.suggest_int('grad_batches',1,4)
-    image_size = trial.suggest_categorical("image_size", [224])
 
     params = {
         "dropout": dropout,
@@ -37,7 +36,6 @@ def suggest_hyperparameters(trial):
         "pretrained": pretrained,
         "label_smoothing": label_smoothing,
         "grad_batches": grad_batches,
-        "image_size": image_size
     }
     return params
 
@@ -65,7 +63,7 @@ def objective(trial,data,config):
             test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
-            image_size = params['image_size']
+            image_size = int(config['params']['image_size'])
         )
 
         dm.setup()
