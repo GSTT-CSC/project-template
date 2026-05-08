@@ -114,7 +114,7 @@ def objective(trial,data,config):
 
         early_stopping_callback = EarlyStopping(
             monitor="val_loss",
-            patience=10,
+            patience=int(config['params']['patience']),
             mode="min",
             verbose=True,
         )

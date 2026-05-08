@@ -110,7 +110,7 @@ def train(config):
 
         early_stopping_callback = EarlyStopping(
             monitor=checkpoint_metric,
-            patience=10,
+            patience=int(config['params']['patience']),
             mode=checkpoint_mode,
             verbose=True,
         )
