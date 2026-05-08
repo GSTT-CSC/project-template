@@ -54,7 +54,7 @@ def train(config):
         # initialise network and datamodule
         dm = DataModule(
             data = data,
-            dm_batch_size = int(config['params']['batch_size']),
+            batch_size = int(config['params']['batch_size']),
             test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
@@ -79,7 +79,7 @@ def train(config):
             validation_class_weights = validation_class_weights,
             learning_rate = float(config['params']['lr']),
             max_lr = float(config['params']['max_lr']),
-            nw_batch_size = int(config['params']['batch_size']),
+            batch_size = int(config['params']['batch_size']),
             mixup_alpha = float(config['params']['mixup_alpha']),
             cutmix_alpha = float(config['params']['cutmix_alpha']),
             mixup_prob = float(config['params']['mixup_prob']),

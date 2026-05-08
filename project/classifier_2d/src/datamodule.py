@@ -24,14 +24,14 @@ label_dict = {
 
 class DataModule(pytorch_lightning.LightningDataModule):
 
-    def __init__(self, data, dm_batch_size: int = 1, num_workers: int = 16,
+    def __init__(self, data, batch_size: int = 1, num_workers: int = 16,
                 test_fraction: float = 0.2, cache_dataset=False,
                 random_seed: int = 42, image_size: int = 224):
         super().__init__()
         self.data = data
         self.xnat_data_list = None
         self.num_workers = num_workers
-        self.batch_size = dm_batch_size
+        self.batch_size = batch_size
         self.test_fraction = test_fraction
         self.cache_dataset = cache_dataset
         self.random_seed = random_seed

@@ -39,7 +39,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
                 validation_class_weights,
                 learning_rate,
                 max_lr,
-                nw_batch_size,
+                batch_size,
                 mixup_alpha,
                 cutmix_alpha,
                 mixup_prob,
@@ -60,7 +60,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
         self.learning_rate = learning_rate
         self.max_lr = max_lr
-        self.batch_size = nw_batch_size
+        self.batch_size = batch_size
 
         self.val_acc = Accuracy(task="multiclass", num_classes=self.n_classes, top_k=1)
         self.val_f1 = F1Score(task="multiclass", num_classes=self.n_classes, top_k=1)
