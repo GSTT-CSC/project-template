@@ -1,16 +1,20 @@
 import logging
+import random
 from abc import ABC
 
+import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 import pytorch_lightning
 import torch
+from captum.attr import Occlusion
 from monai.data import decollate_batch
 from monai.transforms import Activations, AsDiscrete, Compose
 from sklearn.metrics import classification_report, ConfusionMatrixDisplay, confusion_matrix, recall_score
 from timm import create_model
 from timm.data import Mixup
 from torch.nn import CrossEntropyLoss
+from torch.utils.data import DataLoader, Subset
 from torchmetrics import Accuracy, F1Score
 from torchmetrics.classification import MulticlassAUROC
 
@@ -221,3 +225,54 @@ class Network(pytorch_lightning.LightningModule, ABC):
         disp = ConfusionMatrixDisplay(confusion_matrix=confmat)
         disp.plot()
         mlflow.log_figure(disp.figure_, 'confusion_matrix.jpg')
+
+    def _attribute(self, model = None, n_samples_plot: int = 4, step_type: str = '', epoch = None):
+        
+        if model is not None:
+            model.eval()
+        ds = self.trainer.datamodule.val_dataset
+        sample_idx = random.sample(range(len(ds)), min(len(ds), n_samples_plot))
+        fig, axs = plt.subplots(len(sample_idx), 3, figsize=(16, 16), dpi=80)
+        subset = Subset(ds, sample_idx)
+        test_dl = DataLoader(subset, batch_size=1)  
+
+        for i, batch in enumerate(test_dl):
+            image = batch['image'].to(self.device).detach().requires_grad_()
+            if model is not None:
+                output = model(image)
+            else:
+                output = self(image)
+            logit, pred_label_idx = torch.topk(F.softmax(output, dim=1), 1)
+            prediction_score = logit.item()
+            id = batch['subject_id']
+            label = batch['label']
+
+            occlusion = Occlusion(model if model is not None else self)
+
+            attributions_occ = occlusion.attribute(image,
+                                                   strides=(1, 32, 32),
+                                                   target=pred_label_idx,
+                                                   sliding_window_shapes=(1, 64, 64),
+                                                   baselines=0,
+                                                   show_progress=False)
+
+            if len(sample_idx) == 1:  # add singleton dim to axes
+                axs = axs[None, :]
+
+            axs[i, 0].set_title(f"Image {id} label: {self.targets[label.item()]}")
+            axs[i, 0].imshow(image[0, 0, :, :].cpu().detach().squeeze(), cmap="gray", )
+
+            axs[i, 1].set_title(f"attr_occ - pred: {self.targets[pred_label_idx]} ({prediction_score :.3f})")
+            axs[i, 1].imshow(attributions_occ[0, 0, :, :].cpu().detach().squeeze())
+
+            axs[i, 2].set_title(
+                f"attr_occ_overlay - pred: {self.targets[pred_label_idx]} ({prediction_score :.3f})")
+            axs[i, 2].imshow(image[0, 0, :, :].cpu().detach().squeeze(), cmap="gray")
+            axs[i, 2].imshow(attributions_occ[0, 0, :, :].cpu().detach().squeeze(), cmap="BrBG", alpha=0.4)
+
+        plt.tight_layout()
+        plt.show()
+        epoch_str = str(epoch if epoch is not None else str(self.current_epoch).zfill(4))
+        filename = f"attribution_maps/{step_type}/epoch_{epoch_str}.png"
+        mlflow.log_figure(fig, filename)
+        plt.close()
