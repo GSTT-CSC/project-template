@@ -156,7 +156,7 @@ def tune(config):
                           'project': config['xnat']['project'],
                           'verify': config.getboolean('xnat', 'verify')}
 
-    max_workers = 32
+    max_workers = config['system']['max_workers']
     num_workers = (
         max_workers
         if max_workers < multiprocessing.cpu_count()
@@ -174,12 +174,11 @@ def tune(config):
     # Download images from XNAT
     data = importer.xnat_image_download(raw_data)
     
-
     mlflow.pytorch.autolog(log_models=False)
 
     # Create optuna study (hyperparameter tuning framework)
     study = optuna.create_study(study_name="project-tune", direction="minimize")
-    study.optimize(lambda trial: objective(trial, data, config), n_trials=50)
+    study.optimize(lambda trial: objective(trial, data, config), n_trials=int(config['tune']['n_trials']))
 
     with open(('tune_log.txt'), 'w') as f:
         f.write("Study statistics: \n")
@@ -201,7 +200,6 @@ def tune(config):
     
 if __name__ == '__main__':
 
-    
     config_path = 'config/config.cfg'
 
     config = configparser.ConfigParser()
