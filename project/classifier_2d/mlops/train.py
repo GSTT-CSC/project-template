@@ -19,14 +19,15 @@ logger = logging.getLogger(__name__)
 def train(config):
 
     os.environ["CUDA_VISIBLE_DEVICES"] = config["system"]["cuda_visible_devices"]
+    pl.seed_everything(int(config['system']['random_seed']), workers=True)
 
-    xnat_configuration = {'server': config['xnat']['SERVER'],
-                          'user': config['xnat']['USER'],
-                          'password': config['xnat']['PASSWORD'],
-                          'project': config['xnat']['PROJECT'],
-                          'verify': config.getboolean('xnat', 'VERIFY')}
+    xnat_configuration = {'server': config['xnat']['server'],
+                          'user': config['xnat']['user'],
+                          'password': config['xnat']['password'],
+                          'project': config['xnat']['project'],
+                          'verify': config.getboolean('xnat', 'verify')}
 
-    max_workers = config['system']['MAX_WORKERS']
+    max_workers = config['system']['max_workers']
     num_workers = (
         max_workers
         if max_workers < multiprocessing.cpu_count()
