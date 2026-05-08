@@ -10,7 +10,7 @@ import torch
 from captum.attr import Occlusion
 from monai.data import decollate_batch
 from monai.transforms import Activations, AsDiscrete, Compose
-from sklearn.metrics import (classification_report,
+from sklearn.metrics import (
                              ConfusionMatrixDisplay, confusion_matrix,
                              precision_recall_curve, roc_curve, auc, average_precision_score,
                              precision_score, recall_score, f1_score)
@@ -246,64 +246,156 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
         val_loader = self.trainer.datamodule.val_dataloader()
 
-        preds, labels = [], []
-        if threshold_tune == False:
-            for batch in val_loader:
-                images = batch['image'].to(self.device)
-                label = batch['label']
-                y_hat = model(images)
-                pred = torch.argmax(y_hat, dim=1).cpu()
+        probs, labels = [], []
+        for batch in val_loader:
+            valid_mask = batch['valid'].bool()
+            if valid_mask.sum() == 0:
+                continue
+            images = batch['image'][valid_mask].to(self.device)
+            label = batch['label'][valid_mask]
+            valid_labels_mask = label >= 0
+            if valid_labels_mask.sum() == 0:
+                continue
+            images = images[valid_labels_mask]
+            label = label[valid_labels_mask]
+            y_hat = model(images)
+            prob = torch.softmax(y_hat, dim=1)[:, 1].cpu().numpy()
+            probs.extend(prob)
+            labels.extend(label.cpu().numpy())
 
-                preds.append(pred)
-                labels.append(label)
-            
-            self._create_classification_report(preds, labels)
-            self._create_confusion_matrix(preds, labels)
-        else:
-            for batch in val_loader:
-                images = batch['image'].to(self.device)
-                label = batch['label']
-                y_hat = model(images)
-                pred = torch.softmax(y_hat, dim=1)[:, 1].cpu().numpy()
+        probs = np.array(probs)
+        labels = np.array(labels)
 
-                preds.extend(pred)
-                labels.extend(label)
-            
-            best_thresh = 0.5
-            best_sensitivity = 0
-        
-            for t in np.linspace(0,1,100):
-                t_preds = (np.array(preds) >= t).astype(int)
+        self._create_roc_curve(probs, labels)
+        self._create_pr_curve(probs, labels)
+        self._create_threshold_analysis(probs, labels)
+        self._create_confusion_matrices(probs, labels)
+        self._attribute(model=model, n_samples_plot=4, step_type='best', epoch='best')
 
-                sens = recall_score(labels, t_preds)
-                if sens > best_sensitivity:
-                    best_sensitivity = sens
-                    best_thresh = t
-            
-            d_preds = (np.array(preds) >= 0.5).astype(int)
-            d_sens = recall_score(labels,d_preds)
+    def _create_roc_curve(self, probs, labels):
+        fpr, tpr, _ = roc_curve(labels, probs)
+        roc_auc = auc(fpr, tpr)
 
-            threshold_text = f"Default Sensitivity: {d_sens}\nBest Threshold: {best_thresh}\nBest Sensitivity: {best_sensitivity}"
-            with open("threshold.txt", "w") as f:
-                f.write(threshold_text)
-            mlflow.log_artifact('threshold.txt')
-            preds = (np.array(preds) >= best_thresh).astype(int)
-            self._create_classification_report(preds, labels)
-            self._create_confusion_matrix(preds, labels)
+        fig, ax = plt.subplots(figsize=(7, 6))
+        ax.plot(fpr, tpr, color='steelblue', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
+        ax.plot([0, 1], [0, 1], color='grey', linestyle='--', lw=1)
+        ax.set_xlabel('False Positive Rate (1 - Specificity)')
+        ax.set_ylabel('True Positive Rate (Sensitivity)')
+        ax.set_title('ROC Curve')
+        ax.legend(loc='lower right')
+        plt.tight_layout()
+        mlflow.log_figure(fig, 'evaluation/roc_curve.png')
+        mlflow.log_metric('best_model_auroc', roc_auc)
+        plt.close(fig)
 
-    def on_validation_epoch_end(self):
+    def _create_pr_curve(self, probs, labels):
+        precision, recall, _ = precision_recall_curve(labels, probs)
+        ap = average_precision_score(labels, probs)
+
+        fig, ax = plt.subplots(figsize=(7, 6))
+        ax.plot(recall, precision, color='darkorange', lw=2, label=f'PR curve (AP = {ap:.3f})')
+        baseline = labels.mean()
+        ax.axhline(y=baseline, color='grey', linestyle='--', lw=1, label=f'Baseline (prevalence = {baseline:.2f})')
+        ax.set_xlabel('Recall (Sensitivity)')
+        ax.set_ylabel('Precision')
+        ax.set_title('Precision-Recall Curve')
+        ax.legend(loc='upper right')
+        plt.tight_layout()
+        mlflow.log_figure(fig, 'evaluation/pr_curve.png')
+        mlflow.log_metric('best_model_avg_precision', ap)
+        plt.close(fig)
+
+    def _create_threshold_analysis(self, probs, labels):
+        thresholds = np.linspace(0.01, 0.99, 200)
+        rows = []
+        for t in thresholds:
+            preds = (probs >= t).astype(int)
+            if preds.sum() == 0:
+                prec, rec, f1, spec = 1.0, 0.0, 0.0, 1.0
+            else:
+                prec = precision_score(labels, preds, zero_division=1)
+                rec = recall_score(labels, preds, zero_division=0)
+                f1 = f1_score(labels, preds, zero_division=0)
+                tn = ((1 - labels) * (1 - preds)).sum()
+                fp = ((1 - labels) * preds).sum()
+                spec = tn / (tn + fp) if (tn + fp) > 0 else 1.0
+            rows.append((t, prec, rec, spec, f1))
+
+        rows = np.array(rows)
+        thresh_arr, prec_arr, rec_arr, spec_arr, f1_arr = rows.T
+
+        # Plot precision & recall vs threshold
+        fig, ax = plt.subplots(figsize=(9, 6))
+        ax.plot(thresh_arr, prec_arr, label='Precision', color='darkorange', lw=2)
+        ax.plot(thresh_arr, rec_arr, label='Recall (Sensitivity)', color='steelblue', lw=2)
+        ax.plot(thresh_arr, spec_arr, label='Specificity', color='green', lw=2)
+        ax.plot(thresh_arr, f1_arr, label='F1', color='purple', lw=1.5, linestyle='--')
+        ax.set_xlabel('Threshold')
+        ax.set_ylabel('Score')
+        ax.set_title('Precision, Recall, Specificity & F1 vs Threshold')
+        ax.legend()
+        plt.tight_layout()
+        mlflow.log_figure(fig, 'evaluation/metrics_vs_threshold.png')
+        plt.close(fig)
+
+        # Precision-anchored summary table
+        precision_targets = [0.90, 0.85, 0.80, 0.75, 0.70, 0.65, 0.60, 0.55]
+        lines = [f"{'Precision Target':>18} | {'Threshold':>10} | {'Achieved Precision':>14} | {'Recall':>8} | {'Specificity':>12} | {'F1':>6}"]
+        lines.append('-' * 82)
+        for target in precision_targets:
+            # find rows where precision >= target, pick lowest threshold (highest recall)
+            mask = prec_arr >= target
+            if mask.any():
+                idx = np.where(mask)[0][0]  # lowest threshold meeting precision target
+                lines.append(
+                    f"{target:>18.0%} | {thresh_arr[idx]:>10.3f} | {prec_arr[idx]:>14.3f} | "
+                    f"{rec_arr[idx]:>8.3f} | {spec_arr[idx]:>12.3f} | {f1_arr[idx]:>6.3f}"
+                )
+            else:
+                lines.append(f"{target:>18.0%} | {'N/A':>10} | {'model cannot reach this precision target':>50}")
+
+        # Also report Youden's J optimal threshold for reference
+        j_scores = rec_arr + spec_arr - 1
+        best_j_idx = np.argmax(j_scores)
+        lines.append('')
+        lines.append(f"Youden's J optimum  | threshold={thresh_arr[best_j_idx]:.3f} | "
+                     f"precision={prec_arr[best_j_idx]:.3f} | recall={rec_arr[best_j_idx]:.3f} | "
+                     f"specificity={spec_arr[best_j_idx]:.3f}")
+
+        mlflow.log_text('\n'.join(lines), 'evaluation/threshold_analysis.txt')
+
+    def _create_confusion_matrices(self, probs, labels):
+        # Confusion matrices at a few key thresholds
+        key_thresholds = [0.3, 0.5, 0.7, 0.9]
+        fig, axs = plt.subplots(1, len(key_thresholds), figsize=(5 * len(key_thresholds), 5))
+        for ax, t in zip(axs, key_thresholds):
+            preds = (probs >= t).astype(int)
+            cm = confusion_matrix(labels, preds, normalize='true')
+            disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=self.targets)
+            disp.plot(ax=ax, colorbar=False)
+            prec = precision_score(labels, preds, zero_division=1)
+            rec = recall_score(labels, preds, zero_division=0)
+            ax.set_title(f'Threshold={t:.2f}\nPrec={prec:.2f} Rec={rec:.2f}')
+        plt.tight_layout()
+        mlflow.log_figure(fig, 'evaluation/confusion_matrices.png')
+        plt.close(fig)
+
+    def _compute_pr_metrics(self, pr_curve_metric, prefix):
+        precision, recall, _ = pr_curve_metric.compute()
+        pr_curve_metric.reset()
+        auprc = torch.trapezoid(precision.flip(0), recall.flip(0)).item()
+        mask = precision[:-1] >= 0.90
+        recall_at_p90 = recall[:-1][mask].max().item() if mask.any() else 0.0
+        self.log(f'{prefix}_auprc', auprc, sync_dist=True)
+        self.log(f'{prefix}_recall_at_p90', recall_at_p90, sync_dist=True)
+
+    def on_training_epoch_end(self) -> None:
+        self._compute_pr_metrics(self.train_pr_curve, 'train')
+
+    def on_validation_epoch_end(self) -> None:
+        self._compute_pr_metrics(self.val_pr_curve, 'val')
         if self.current_epoch % self.report_interval == 0:
             self._attribute(n_samples_plot=4, step_type='validation')
-
-    def _create_classification_report(self, preds, labels):
-        val_report = classification_report(labels, preds, labels=self.labels, target_names=self.targets)
-        mlflow.log_text(val_report, f'classification_report.txt')
-
-    def _create_confusion_matrix(self, preds, labels):
-        confmat = confusion_matrix(labels, preds, normalize='true')
-        disp = ConfusionMatrixDisplay(confusion_matrix=confmat)
-        disp.plot()
-        mlflow.log_figure(disp.figure_, 'confusion_matrix.jpg')
 
     def _attribute(self, model = None, n_samples_plot: int = 4, step_type: str = '', epoch = None):
         
