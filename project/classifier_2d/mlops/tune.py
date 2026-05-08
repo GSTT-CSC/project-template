@@ -22,7 +22,7 @@ def suggest_hyperparameters(trial):
     lr = trial.suggest_float("lr", 1e-4, 5e-4, log=True)
     max_lr = trial.suggest_categorical("max_lr",[5e-4,1e-3])
     model = trial.suggest_categorical("model", ["convnextv2_tiny.fcmae_ft_in22k_in1k","convnextv2_base.fcmae_ft_in22k_in1k"])
-    batch_size = trial.suggest_int("batch_size", 4, 16, step=4)
+    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
     pretrained = trial.suggest_categorical("pretrained", ["TRUE"])
     label_smoothing = trial.suggest_float("label_smoothing", 0.0, 0.1)
     grad_batches = trial.suggest_int('grad_batches',1,4)
@@ -61,7 +61,7 @@ def objective(trial,data,config):
         # initialise network and datamodule
         dm = DataModule(
             data = data,
-            dm_batch_size = int(config['params']['dm_batch_size']),
+            dm_batch_size = int(config['params']['batch_size']),
             test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
