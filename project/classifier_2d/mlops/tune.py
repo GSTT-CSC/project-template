@@ -66,6 +66,7 @@ def objective(trial,data,config):
             label_dict = label_dict,
             batch_size = params['batch_size'],
             validation_fraction = float(config['params']['validation_fraction']),
+            test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
             image_size = int(config['params']['image_size'])
