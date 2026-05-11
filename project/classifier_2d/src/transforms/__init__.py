@@ -29,7 +29,15 @@ from src.transforms.load_image_xnatd import LoadImageXNATd
 
 def load_xnat(xnat_configuration: dict):
     """
-    This transform is used by the DataModule to load images from XNAT
+    This transform is used by the DataModule to load images from XNAT.
+
+    Args:
+        xnat_configuration (dict): XNAT connection settings passed to LoadImageXNATd,
+            typically containing keys such as server, user, password, and project.
+
+    Returns:
+        list[MapTransform]: A single-element list containing LoadImageXNATd, which reads
+            DICOM files from XNAT and stores the resulting image array under the 'data' key.
     """
     return [
         LoadImageXNATd(
@@ -42,7 +50,23 @@ def load_xnat(xnat_configuration: dict):
 
 def normalise(image_size):
     """
-    This transform list is used to prepare tensors for training or inference
+    This transform list is used to prepare tensors for training or inference.
+
+    Squeezes the redundant depth dimension, ensures a channel-first layout, crops
+    to the foreground, resizes to a slightly larger intermediate size, then clips
+    and scales intensity to [0, 255] and casts to float32.
+
+    Args:
+        image_size (int): Target spatial size for the longest side of the image.
+            The longest side of the image is resized to image_size + 20, 
+            with the shorter size scaled proportionally, to leave a small margin
+            before the final crop applied by downstream transforms.
+
+    Returns:
+        list[MapTransform]: Ordered list of MONAI transforms operating on the
+            'image' key. Output tensor has shape (1, H, W) where 
+            max(H,W) = image_size + 20 with dtype float32 and intensity
+            values in [0.0, 255.0].
     """
     return [
         SqueezeDimd(keys=['image'], dim=2),
@@ -57,6 +81,27 @@ def train_augment(image_size):
     """
     This transform list is used to augment images for training.
     Aim here is to improve generalisation.
+
+    Applies a randomised sequence of spatial and intensity augmentations before
+    padding or cropping to the final square size. All augmentations are
+    probabilistic and operate on the 'image' key only (labels are unaffected).
+
+    Spatial augmentations: horizontal flip, zoom (×1.05–1.10), rotation
+        (±0.4 rad), and random affine with zero-padding.
+    Intensity augmentations: Gaussian noise (σ≤10), Gaussian blur (σ 0.5–1.0),
+        intensity scaling (×0.75–1.25), and contrast adjustment (γ 0.5–2.0,
+        applied twice — once inverted, once normal).
+    Dropout: random coarse dropout of 8–16 rectangular patches of 10–15 px.
+
+    Args:
+        image_size (int): Final spatial size (pixels) for both height and width.
+            The image is padded or cropped to (image_size, image_size) at the
+            end of the augmentation pipeline.
+
+    Returns:
+        list[MapTransform]: Ordered list of MONAI random transforms. Output
+            tensor has shape (1, image_size, image_size) with the same dtype
+            and intensity range as the input.
     """
     return [
         RandFlipd(keys=['image'], spatial_axis=0, prob=0.5),
@@ -79,6 +124,23 @@ def train_augment(image_size):
 def output(image_size):
     """
     This transform list is used for final normalisation and feature selection.
+
+    Pads or crops to the target square size, scales intensity to [0, 1], then
+    applies ImageNet-style normalisation (mean=0.449, std=0.226, the grayscale
+    average of the per-channel ImageNet statistics). Required when using
+    pretrained ImageNet backbones. Finally converts to tensors and selects
+    only the keys needed downstream.
+
+    Args:
+        image_size (int): Final spatial size (pixels) for both height and width.
+            The image is padded or cropped to (image_size, image_size).
+
+    Returns:
+        list[MapTransform]: Ordered list of MONAI transforms. After the last
+            step, the batch dict contains only 'subject_id', 'image', and
+            'label'. The image tensor has shape (1, image_size, image_size),
+            dtype float32, and is ImageNet-normalised. The label tensor has
+            meta tracking disabled (track_meta=False).
     """
     return [
         ResizeWithPadOrCropd(

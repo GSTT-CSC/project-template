@@ -10,7 +10,9 @@ from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint, Ea
 from torch.cuda import is_available as cuda_available
 
 from src.data_import_xnat import DataImportXNAT
-from src.datamodule import DataModule, label_dict
+import json
+
+from src.datamodule import DataModule
 from src.network import Network
 
 logger = logging.getLogger(__name__)
@@ -19,14 +21,13 @@ logger = logging.getLogger(__name__)
 def suggest_hyperparameters(trial):
 
     dropout = trial.suggest_float("dropout", 0.0, 0.3, step=0.1)
-    lr = trial.suggest_float("lr", 1e-4, 5e-4, log=True)
-    max_lr = trial.suggest_categorical("max_lr",[5e-4,1e-3])
+    lr = trial.suggest_float("lr", 1e-5, 1e-3, log=True)
+    max_lr = trial.suggest_categorical("max_lr",[1e-4,5e-4,1e-3,5e-3])
     model = trial.suggest_categorical("model", ["convnextv2_tiny.fcmae_ft_in22k_in1k","convnextv2_base.fcmae_ft_in22k_in1k"])
-    batch_size = trial.suggest_int("batch_size", 4, 16, step=4)
-    pretrained = trial.suggest_categorical("pretrained", ["TRUE"])
-    label_smoothing = trial.suggest_float("label_smoothing", 0.0, 0.1)
+    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
+    pretrained = trial.suggest_categorical("pretrained", [True, False])
+    label_smoothing = trial.categorical("label_smoothing", [0.0, 0.05, 0.1])
     grad_batches = trial.suggest_int('grad_batches',1,4)
-    image_size = trial.suggest_categorical("image_size", [224])
 
     params = {
         "dropout": dropout,
@@ -37,13 +38,12 @@ def suggest_hyperparameters(trial):
         "pretrained": pretrained,
         "label_smoothing": label_smoothing,
         "grad_batches": grad_batches,
-        "image_size": image_size
     }
     return params
 
 def objective(trial,data,config):
 
-    max_workers = 32
+    max_workers = config['system']['max_workers']
     num_workers = (
         max_workers
         if max_workers < multiprocessing.cpu_count()
@@ -58,18 +58,21 @@ def objective(trial,data,config):
         params = suggest_hyperparameters(trial)
         mlflow.log_params(params)
   
+        label_dict = json.loads(config['project']['label_dict'])
+
         # initialise network and datamodule
         dm = DataModule(
             data = data,
-            dm_batch_size = int(config['params']['dm_batch_size']),
-            test_fraction = float(config['params']['test_fraction']),
+            label_dict = label_dict,
+            batch_size = params['batch_size'],
+            validation_fraction = float(config['params']['validation_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
-            image_size = params['image_size']
+            image_size = int(config['params']['image_size'])
         )
 
         dm.setup()
-        
+
         n_classes = len(set([x for x in label_dict.values() if x is not None]))
         mlflow.log_param('n_classes', n_classes)
 
@@ -77,17 +80,25 @@ def objective(trial,data,config):
         validation_class_weights = dm.data_manifest["validation"]["class_weights"]
 
         net = Network(
+            n_classes = n_classes,
+            label_dict = label_dict,
             model_name = params['model'],
             pretrained = params['pretrained'],
-            n_classes = n_classes,
-            dropout = params['dropout'],
-            weighted_loss = config['params']['weighted_loss'],
-            train_class_weights = train_class_weights,
-            validation_class_weights = validation_class_weights,
             learning_rate = params['lr'],
             max_lr = params['max_lr'],
-            nw_batch_size = params['batch_size'],
-            label_smoothing = params['label_smoothing']
+            batch_size = params['batch_size'],
+            dropout = params['dropout'],
+            train_class_weights = train_class_weights,
+            validation_class_weights = validation_class_weights,
+            weighted_loss = config.getboolean('params', 'weighted_loss'),
+            loss_fcn = config['params']['loss_fcn'],
+            weight_decay = float(config['params']['weight_decay']),
+            mixup_alpha = float(config['params']['mixup_alpha']),
+            cutmix_alpha = float(config['params']['cutmix_alpha']),
+            mixup_prob = float(config['params']['mixup_prob']),
+            mixup_switch_prob = float(config['params']['mixup_switch_prob']),
+            mixup_mode = config['params']['mixup_mode'],
+            label_smoothing = params['label_smoothing'],
         )
 
         # Callbacks
@@ -103,7 +114,7 @@ def objective(trial,data,config):
 
         early_stopping_callback = EarlyStopping(
             monitor="val_loss",
-            patience=10,
+            patience=int(config['params']['patience']),
             mode="min",
             verbose=True,
         )
@@ -137,14 +148,15 @@ def objective(trial,data,config):
 def tune(config):
 
     os.environ["CUDA_VISIBLE_DEVICES"] = config["system"]["cuda_visible_devices"]
+    pl.seed_everything(int(config['system']['random_seed']), workers=True)
 
-    xnat_configuration = {'server': config['xnat']['SERVER'],
-                          'user': config['xnat']['USER'],
-                          'password': config['xnat']['PASSWORD'],
-                          'project': config['xnat']['PROJECT'],
-                          'verify': config.getboolean('xnat', 'VERIFY')}
+    xnat_configuration = {'server': config['xnat']['server'],
+                          'user': config['xnat']['user'],
+                          'password': config['xnat']['password'],
+                          'project': config['xnat']['project'],
+                          'verify': config.getboolean('xnat', 'verify')}
 
-    max_workers = 32
+    max_workers = config['system']['max_workers']
     num_workers = (
         max_workers
         if max_workers < multiprocessing.cpu_count()
@@ -162,12 +174,11 @@ def tune(config):
     # Download images from XNAT
     data = importer.xnat_image_download(raw_data)
     
-
     mlflow.pytorch.autolog(log_models=False)
 
     # Create optuna study (hyperparameter tuning framework)
     study = optuna.create_study(study_name="project-tune", direction="minimize")
-    study.optimize(lambda trial: objective(trial, data, config), n_trials=50)
+    study.optimize(lambda trial: objective(trial, data, config), n_trials=int(config['tune']['n_trials']))
 
     with open(('tune_log.txt'), 'w') as f:
         f.write("Study statistics: \n")
@@ -189,7 +200,6 @@ def tune(config):
     
 if __name__ == '__main__':
 
-    
     config_path = 'config/config.cfg'
 
     config = configparser.ConfigParser()

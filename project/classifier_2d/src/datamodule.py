@@ -17,22 +17,18 @@ from src.transforms.safe_wrapper import SafeWrapperTransform
 
 logger = logging.getLogger(__name__)
 
-label_dict = {
-    'NEGATIVE': 0,
-    'POSITIVE': 1,
-}
-
 class DataModule(pytorch_lightning.LightningDataModule):
 
-    def __init__(self, data, dm_batch_size: int = 1, num_workers: int = 16,
-                test_fraction: float = 0.2, cache_dataset=False,
+    def __init__(self, data, label_dict: dict, batch_size: int = 1, num_workers: int = 16,
+                validation_fraction: float = 0.2, cache_dataset=False,
                 random_seed: int = 42, image_size: int = 224):
         super().__init__()
         self.data = data
+        self.label_dict = label_dict
         self.xnat_data_list = None
         self.num_workers = num_workers
-        self.batch_size = dm_batch_size
-        self.test_fraction = test_fraction
+        self.batch_size = batch_size
+        self.validation_fraction = validation_fraction
         self.cache_dataset = cache_dataset
         self.random_seed = random_seed
         self.image_size = image_size
@@ -91,7 +87,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
                        sample['data_label'] == 'label']
 
         self.train_data, self.validation_data = train_test_split(data,
-                                                                 test_size=self.test_fraction,
+                                                                 test_size=self.validation_fraction,
                                                                  stratify=self.labels,
                                                                  random_state=self.random_seed,
                                                                  )
@@ -100,7 +96,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
             'N_total': len(data),
             'train': self.dataset_stats(self.train_data),
             'validation': self.dataset_stats(self.validation_data),
-            'labels': label_dict
+            'labels': self.label_dict
         }
 
         mlflow.log_dict(self.data_manifest, "data_manifest.json")
