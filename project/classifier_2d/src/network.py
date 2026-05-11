@@ -102,7 +102,6 @@ class Network(pytorch_lightning.LightningModule, ABC):
                                   num_classes=self.n_classes, drop_rate=self.dropout)
         
         self.weighted_loss = weighted_loss
-        test_class_weights = test_class_weights if test_class_weights is not None else validation_class_weights
         self.loss_fcn = loss_fcn
         self.weight_decay = weight_decay
 
