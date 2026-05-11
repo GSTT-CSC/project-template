@@ -90,7 +90,7 @@ def objective(trial,data,config):
             dropout = params['dropout'],
             train_class_weights = train_class_weights,
             validation_class_weights = validation_class_weights,
-            weighted_loss = config['params']['weighted_loss'],
+            weighted_loss = config.getboolean('params', 'weighted_loss'),
             loss_fcn = config['params']['loss_fcn'],
             weight_decay = float(config['params']['weight_decay']),
             mixup_alpha = float(config['params']['mixup_alpha']),
