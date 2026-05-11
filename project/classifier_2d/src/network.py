@@ -293,14 +293,14 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
     
-    def evaluate_best_model(self, model):
+    def evaluate_best_model(self, model, split='val'):
         model.eval()
         model.freeze()
 
-        val_loader = self.trainer.datamodule.val_dataloader()
+        loader = self.trainer.datamodule.val_dataloader() if split == 'val' else self.trainer.datamodule.test_dataloader()
 
         probs, labels = [], []
-        for batch in val_loader:
+        for batch in loader:
             valid_mask = batch['valid'].bool()
             if valid_mask.sum() == 0:
                 continue
@@ -319,13 +319,13 @@ class Network(pytorch_lightning.LightningModule, ABC):
         probs = np.array(probs)
         labels = np.array(labels)
 
-        self._create_roc_curve(probs, labels)
-        self._create_pr_curve(probs, labels)
-        self._create_threshold_analysis(probs, labels)
-        self._create_confusion_matrices(probs, labels)
-        self._attribute(model=model, n_samples_plot=4, step_type='best', epoch='best')
+        self._create_roc_curve(probs, labels, split)
+        self._create_pr_curve(probs, labels, split)
+        self._create_threshold_analysis(probs, labels, split)
+        self._create_confusion_matrices(probs, labels, split)
+        self._attribute(model=model, n_samples_plot=4, step_type='best', epoch='best', split=split)
 
-    def _create_roc_curve(self, probs, labels):
+    def _create_roc_curve(self, probs, labels, split='val'):
         fpr, tpr, _ = roc_curve(labels, probs)
         roc_auc = auc(fpr, tpr)
 
@@ -337,11 +337,11 @@ class Network(pytorch_lightning.LightningModule, ABC):
         ax.set_title('ROC Curve')
         ax.legend(loc='lower right')
         plt.tight_layout()
-        mlflow.log_figure(fig, 'evaluation/roc_curve.png')
-        mlflow.log_metric('best_model_auroc', roc_auc)
+        mlflow.log_figure(fig, f'evaluation/{split}/roc_curve.png')
+        mlflow.log_metric(f'{split}_best_model_auroc', roc_auc)
         plt.close(fig)
 
-    def _create_pr_curve(self, probs, labels):
+    def _create_pr_curve(self, probs, labels, split='val'):
         precision, recall, _ = precision_recall_curve(labels, probs)
         ap = average_precision_score(labels, probs)
 
@@ -354,11 +354,11 @@ class Network(pytorch_lightning.LightningModule, ABC):
         ax.set_title('Precision-Recall Curve')
         ax.legend(loc='upper right')
         plt.tight_layout()
-        mlflow.log_figure(fig, 'evaluation/pr_curve.png')
-        mlflow.log_metric('best_model_auprc', ap)
+        mlflow.log_figure(fig, f'evaluation/{split}/pr_curve.png')
+        mlflow.log_metric(f'{split}_best_model_auprc', ap)
         plt.close(fig)
 
-    def _create_threshold_analysis(self, probs, labels):
+    def _create_threshold_analysis(self, probs, labels, split='val'):
         thresholds = np.linspace(0.01, 0.99, 200)
         rows = []
         for t in thresholds:
@@ -388,7 +388,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
         ax.set_title('Precision, Recall, Specificity & F1 vs Threshold')
         ax.legend()
         plt.tight_layout()
-        mlflow.log_figure(fig, 'evaluation/metrics_vs_threshold.png')
+        mlflow.log_figure(fig, f'evaluation/{split}/metrics_vs_threshold.png')
         plt.close(fig)
 
         # Precision-anchored summary table
@@ -415,9 +415,9 @@ class Network(pytorch_lightning.LightningModule, ABC):
                      f"precision={prec_arr[best_j_idx]:.3f} | recall={rec_arr[best_j_idx]:.3f} | "
                      f"specificity={spec_arr[best_j_idx]:.3f}")
 
-        mlflow.log_text('\n'.join(lines), 'evaluation/threshold_analysis.txt')
+        mlflow.log_text('\n'.join(lines), f'evaluation/{split}/threshold_analysis.txt')
 
-    def _create_confusion_matrices(self, probs, labels):
+    def _create_confusion_matrices(self, probs, labels, split='val'):
         # Confusion matrices at a few key thresholds
         key_thresholds = [0.3, 0.5, 0.7, 0.9]
         fig, axs = plt.subplots(1, len(key_thresholds), figsize=(5 * len(key_thresholds), 5))
@@ -430,7 +430,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
             rec = recall_score(labels, preds, zero_division=0)
             ax.set_title(f'Threshold={t:.2f}\nPrec={prec:.2f} Rec={rec:.2f}')
         plt.tight_layout()
-        mlflow.log_figure(fig, 'evaluation/confusion_matrices.png')
+        mlflow.log_figure(fig, f'evaluation/{split}/confusion_matrices.png')
         plt.close(fig)
 
     def _compute_pr_metrics(self, pr_curve_metric, prefix):
@@ -453,11 +453,11 @@ class Network(pytorch_lightning.LightningModule, ABC):
     def on_test_epoch_end(self) -> None:
         self._compute_pr_metrics(self.test_pr_curve, 'test')
 
-    def _attribute(self, model = None, n_samples_plot: int = 4, step_type: str = '', epoch = None):
+    def _attribute(self, model = None, n_samples_plot: int = 4, step_type: str = '', epoch = None, split='val'):
         
         if model is not None:
             model.eval()
-        ds = self.trainer.datamodule.val_dataset
+        ds = self.trainer.datamodule.val_dataset if split == 'val' else self.trainer.datamodule.test_dataset
         sample_idx = random.sample(range(len(ds)), min(len(ds), n_samples_plot))
         fig, axs = plt.subplots(len(sample_idx), 3, figsize=(16, 16), dpi=80)
         subset = Subset(ds, sample_idx)

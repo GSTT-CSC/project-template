@@ -171,10 +171,12 @@ def train(config):
         logger.info('Finding best threshold')
         best_model_path = checkpoint_callback.best_model_path
         best_model = net.load_from_checkpoint(best_model_path)
-        net.evaluate_best_model(best_model, threshold_tune=True)
+        net.evaluate_best_model(best_model, split='val')
+        net.evaluate_best_model(best_model, split='test')
 
         mlflow.log_artifact('val_transform_failures.csv')
         mlflow.log_artifact('train_transform_failures.csv')
+        mlflow.log_artifact('test_transform_failures.csv')
 
         logger.info('Training complete')
         
