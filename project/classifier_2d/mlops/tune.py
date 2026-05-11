@@ -79,6 +79,7 @@ def objective(trial,data,config):
 
         train_class_weights = dm.data_manifest["train"]["class_weights"]
         validation_class_weights = dm.data_manifest["validation"]["class_weights"]
+        test_class_weights = dm.data_manifest["test"]["class_weights"]
 
         net = Network(
             n_classes = n_classes,
@@ -91,6 +92,7 @@ def objective(trial,data,config):
             dropout = params['dropout'],
             train_class_weights = train_class_weights,
             validation_class_weights = validation_class_weights,
+            test_class_weights = test_class_weights,
             weighted_loss = config.getboolean('params', 'weighted_loss'),
             loss_fcn = config['params']['loss_fcn'],
             weight_decay = float(config['params']['weight_decay']),

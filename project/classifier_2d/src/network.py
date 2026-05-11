@@ -42,6 +42,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
                 dropout,
                 train_class_weights,
                 validation_class_weights,
+                test_class_weights,
                 weighted_loss,
                 loss_fcn,
                 weight_decay,
@@ -84,6 +85,14 @@ class Network(pytorch_lightning.LightningModule, ABC):
         self.val_auroc = MulticlassAUROC(num_classes=self.n_classes, average='macro', thresholds=None)
         self.val_pr_curve = BinaryPrecisionRecallCurve()
 
+        self.test_acc = Accuracy(task=task, num_classes=self.n_classes, top_k=1)
+        self.test_f1 = F1Score(task=task, num_classes=self.n_classes, top_k=1)
+        self.test_f05 = FBetaScore(task=task, num_classes=self.n_classes, beta=0.5)
+        self.test_precision = Precision(task=task, num_classes=self.n_classes)
+        self.test_recall = Recall(task=task, num_classes=self.n_classes)
+        self.test_auroc = MulticlassAUROC(num_classes=self.n_classes, average='macro', thresholds=None)
+        self.test_pr_curve = BinaryPrecisionRecallCurve()
+
         self.targets, self.labels = list(
             map(list, zip(*[(target, label) for target, label in label_dict.items() if label is not None])))
 
@@ -93,8 +102,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
                                   num_classes=self.n_classes, drop_rate=self.dropout)
         
         self.weighted_loss = weighted_loss
-        self.train_class_weights = train_class_weights
-        self.validation_class_weights = validation_class_weights
+        test_class_weights = test_class_weights if test_class_weights is not None else validation_class_weights
         self.loss_fcn = loss_fcn
         self.weight_decay = weight_decay
 
@@ -103,12 +111,16 @@ class Network(pytorch_lightning.LightningModule, ABC):
                                 torch.tensor(train_class_weights, dtype=torch.float32))
             self.register_buffer('validation_class_weights_tensor',
                                 torch.tensor(validation_class_weights, dtype=torch.float32))
+            self.register_buffer('test_class_weights_tensor',
+                        torch.tensor(test_class_weights, dtype=torch.float32))
         else:
             self.train_class_weights_tensor = None
             self.validation_class_weights_tensor = None
+            self.test_class_weights_tensor = None
 
         self.train_loss_function = get_loss_function(loss_fcn, weight=self.train_class_weights_tensor, label_smoothing=self.label_smoothing)
         self.validation_loss_function = get_loss_function(loss_fcn, weight=self.validation_class_weights_tensor)
+        self.test_loss_function = get_loss_function(loss_fcn, weight=self.test_class_weights_tensor)
 
         self.mixup_fn = Mixup(
             mixup_alpha=mixup_alpha,
@@ -230,6 +242,47 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
         return {"loss": loss, 'y_onehot': y_onehot, 'y_pred_act': y_pred_act}
 
+    def test_step(self, batch, batch_idx):
+        valid_mask = batch['valid'].bool()
+        if valid_mask.sum() == 0:
+            return torch.tensor(0.0, device=self.device)
+
+        x = batch['image'][valid_mask]
+        y = batch['label'][valid_mask]
+
+        valid_labels_mask = y >= 0
+        if valid_labels_mask.sum() == 0:
+            return torch.tensor(0.0, device=self.device)
+
+        x = x[valid_labels_mask]
+        y = y[valid_labels_mask]
+        y_hat = self(x)
+
+        loss = self.test_loss_function(y_hat, y)
+        self.log('test_loss', loss, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        test_probs = torch.softmax(y_hat, dim=1)[:, 1] if self.n_classes == 2 else y_hat
+
+        self.test_acc(test_probs, y)
+        self.log('test_acc', self.test_acc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_f1(test_probs, y)
+        self.log('test_f1', self.test_f1, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_f05(test_probs, y)
+        self.log('test_f05', self.test_f05, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_precision(test_probs, y)
+        self.log('test_precision', self.test_precision, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_recall(test_probs, y)
+        self.log('test_recall', self.test_recall, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_auroc(y_hat, y)
+        self.log('test_auroc', self.test_auroc, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
+
+        self.test_pr_curve.update(test_probs, y)
+
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(),
                                     lr=self.learning_rate,
@@ -240,7 +293,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
 
         return {"optimizer": optimizer, "lr_scheduler": scheduler}
     
-    def evaluate_best_model(self, model, threshold_tune = False, epoch=0):
+    def evaluate_best_model(self, model):
         model.eval()
         model.freeze()
 
@@ -396,6 +449,9 @@ class Network(pytorch_lightning.LightningModule, ABC):
         self._compute_pr_metrics(self.val_pr_curve, 'val')
         if self.current_epoch % self.report_interval == 0:
             self._attribute(n_samples_plot=4, step_type='validation')
+    
+    def on_test_epoch_end(self) -> None:
+        self._compute_pr_metrics(self.test_pr_curve, 'test')
 
     def _attribute(self, model = None, n_samples_plot: int = 4, step_type: str = '', epoch = None):
         
