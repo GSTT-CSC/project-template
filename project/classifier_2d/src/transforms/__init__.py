@@ -58,13 +58,15 @@ def normalise(image_size):
 
     Args:
         image_size (int): Target spatial size for the longest side of the image.
-            The image is resized to image_size + 20 here to leave a small margin
+            The longest side of the image is resized to image_size + 20, 
+            with the shorter size scaled proportionally, to leave a small margin
             before the final crop applied by downstream transforms.
 
     Returns:
         list[MapTransform]: Ordered list of MONAI transforms operating on the
-            'image' key. Output tensor has shape (1, H, W) with dtype float32
-            and intensity values in [0.0, 255.0].
+            'image' key. Output tensor has shape (1, H, W) where 
+            max(H,W) = image_size + 20 with dtype float32 and intensity
+            values in [0.0, 255.0].
     """
     return [
         SqueezeDimd(keys=['image'], dim=2),
