@@ -132,6 +132,7 @@ def train(config):
         )
 
         trainer.fit(net, dm)
+        trainer.test(net, dm, ckpt_path=checkpoint_callback.best_model_path)
 
         checkpoint = torch.load(checkpoint_callback.best_model_path)
         net.load_state_dict(checkpoint['state_dict'])
