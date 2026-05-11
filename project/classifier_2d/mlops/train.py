@@ -57,7 +57,7 @@ def train(config):
             data = data,
             label_dict = label_dict,
             batch_size = int(config['params']['batch_size']),
-            test_fraction = float(config['params']['test_fraction']),
+            validation_fraction = float(config['params']['validation_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
             image_size = int(config['params']['image_size'])
