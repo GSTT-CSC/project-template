@@ -26,7 +26,7 @@ def suggest_hyperparameters(trial):
     model = trial.suggest_categorical("model", ["convnextv2_tiny.fcmae_ft_in22k_in1k","convnextv2_base.fcmae_ft_in22k_in1k"])
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
     pretrained = trial.suggest_categorical("pretrained", [True, False])
-    label_smoothing = trial.categorical("label_smoothing", [0.0, 0.5, 0.1])
+    label_smoothing = trial.categorical("label_smoothing", [0.0, 0.05, 0.1])
     grad_batches = trial.suggest_int('grad_batches',1,4)
 
     params = {
