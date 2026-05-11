@@ -302,7 +302,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
         ax.legend(loc='upper right')
         plt.tight_layout()
         mlflow.log_figure(fig, 'evaluation/pr_curve.png')
-        mlflow.log_metric('best_model_avg_precision', ap)
+        mlflow.log_metric('best_model_auprc', ap)
         plt.close(fig)
 
     def _create_threshold_analysis(self, probs, labels):
