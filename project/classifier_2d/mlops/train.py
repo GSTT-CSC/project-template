@@ -58,6 +58,7 @@ def train(config):
             label_dict = label_dict,
             batch_size = int(config['params']['batch_size']),
             validation_fraction = float(config['params']['validation_fraction']),
+            test_fraction = float(config['params']['test_fraction']),
             num_workers = num_workers,
             random_seed = int(config['params']['random_seed']),
             image_size = int(config['params']['image_size'])
@@ -70,6 +71,7 @@ def train(config):
 
         train_class_weights = dm.data_manifest["train"]["class_weights"]
         validation_class_weights = dm.data_manifest["validation"]["class_weights"]
+        test_class_weights = dm.data_manifest["test"]["class_weights"]
 
         net = Network(
             n_classes = n_classes,
@@ -82,6 +84,7 @@ def train(config):
             dropout = float(config['params']['dropout']),
             train_class_weights = train_class_weights,
             validation_class_weights = validation_class_weights,
+            test_class_weights = test_class_weights,
             weighted_loss = config.getboolean('params', 'weighted_loss'),
             loss_fcn = config['params']['loss_fcn'],
             weight_decay = float(config['params']['weight_decay']),
@@ -129,6 +132,7 @@ def train(config):
         )
 
         trainer.fit(net, dm)
+        trainer.test(net, dm, ckpt_path=checkpoint_callback.best_model_path)
 
         checkpoint = torch.load(checkpoint_callback.best_model_path)
         net.load_state_dict(checkpoint['state_dict'])
@@ -168,10 +172,12 @@ def train(config):
         logger.info('Finding best threshold')
         best_model_path = checkpoint_callback.best_model_path
         best_model = net.load_from_checkpoint(best_model_path)
-        net.evaluate_best_model(best_model, threshold_tune=True)
+        net.evaluate_best_model(best_model, split='val')
+        net.evaluate_best_model(best_model, split='test')
 
         mlflow.log_artifact('val_transform_failures.csv')
         mlflow.log_artifact('train_transform_failures.csv')
+        mlflow.log_artifact('test_transform_failures.csv')
 
         logger.info('Training complete')
         

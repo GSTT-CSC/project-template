@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class DataModule(pytorch_lightning.LightningDataModule):
 
     def __init__(self, data, label_dict: dict, batch_size: int = 1, num_workers: int = 16,
-                validation_fraction: float = 0.2, cache_dataset=False,
+                validation_fraction: float = 0.1,  test_fraction: float = 0.1, cache_dataset=False,
                 random_seed: int = 42, image_size: int = 224):
         super().__init__()
         self.data = data
@@ -29,6 +29,7 @@ class DataModule(pytorch_lightning.LightningDataModule):
         self.num_workers = num_workers
         self.batch_size = batch_size
         self.validation_fraction = validation_fraction
+        self.test_fraction = test_fraction
         self.cache_dataset = cache_dataset
         self.random_seed = random_seed
         self.image_size = image_size
@@ -85,17 +86,28 @@ class DataModule(pytorch_lightning.LightningDataModule):
 
         self.labels = [int(sample['action_data']) for subject in data for sample in subject['data'] if
                        sample['data_label'] == 'label']
+        
+        train_val_data, self.test_data = train_test_split(
+            data,
+            test_size=self.test_fraction,
+            stratify=self.labels,
+            random_state=self.random_seed,
+            )
 
-        self.train_data, self.validation_data = train_test_split(data,
-                                                                 test_size=self.validation_fraction,
-                                                                 stratify=self.labels,
-                                                                 random_state=self.random_seed,
-                                                                 )
+        val_size = self.validation_fraction / (1.0 - self.test_fraction)
+        train_val_labels = self.get_labels(train_val_data)
+        self.train_data, self.validation_data = train_test_split(
+            train_val_data,
+            test_size=val_size,
+            stratify=train_val_labels,
+            random_state=self.random_seed,
+            )
 
         self.data_manifest = {
             'N_total': len(data),
             'train': self.dataset_stats(self.train_data),
             'validation': self.dataset_stats(self.validation_data),
+            'test': self.dataset_stats(self.test_data),
             'labels': self.label_dict
         }
 
@@ -107,6 +119,11 @@ class DataModule(pytorch_lightning.LightningDataModule):
                                                                            log_file = "val_transform_failures.csv",
                                                                            image_size = self.image_size),
                                             num_workers=self.num_workers)
+            self.test_dataset = CacheDataset(data=self.test_data,
+                                            transform=SafeWrapperTransform(transform=self.val_transforms,
+                                                               log_file="test_transform_failures.csv",
+                                                               image_size=self.image_size),
+                                            num_workers=self.num_workers)
             self.train_dataset = CacheDataset(data=self.train_data,
                                             transform=SafeWrapperTransform(transform = self.train_transforms,
                                                                            log_file = "train_transform_failures.csv",
@@ -116,6 +133,10 @@ class DataModule(pytorch_lightning.LightningDataModule):
             self.val_dataset = Dataset(data=self.validation_data, transform=SafeWrapperTransform(transform = self.val_transforms,
                                                                                 log_file = "val_transform_failures.csv",
                                                                                 image_size = self.image_size)
+                                                                                )
+            self.test_dataset = Dataset(data=self.test_data, transform=SafeWrapperTransform(transform=self.val_transforms,
+                                                                                log_file="test_transform_failures.csv",
+                                                                                image_size=self.image_size)
                                                                                 )
             self.train_dataset = Dataset(data=self.train_data, transform=SafeWrapperTransform(transform = self.train_transforms,
                                                                                 log_file = "train_transform_failures.csv",
@@ -138,8 +159,16 @@ class DataModule(pytorch_lightning.LightningDataModule):
         :return:
         """
         return DataLoader(self.val_dataset, batch_size=1, num_workers=self.num_workers,
-                          pin_memory=is_available(), collate_fn=pad_list_data_collate, )
+                          pin_memory=is_available(), collate_fn=pad_list_data_collate)
 
+    def test_dataloader(self):
+        """
+        Define test dataloader
+        :return:
+        """
+        return DataLoader(self.test_dataset, batch_size=1, num_workers=self.num_workers,
+                      pin_memory=is_available(), collate_fn=pad_list_data_collate)
+    
     def dataset_stats(self, dataset):
         stats = {'n_samples': len(dataset)}
         stats["class_weights"] = self.calculate_class_weights(dataset)
