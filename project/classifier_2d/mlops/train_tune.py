@@ -143,7 +143,7 @@ def build_experiment(data, num_workers, config, checkpoint_dir):
     trainer = pl.Trainer(
         precision=precision_setting,
         callbacks=callbacks,
-        devices=1 if cuda_available() else "auto",
+        devices=1 if torch.cuda.is_available() else "auto",
         accelerator="auto",
         log_every_n_steps=1,
         num_sanity_val_steps=0,
