@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from itertools import chain
@@ -9,6 +10,12 @@ import tqdm
 import xnat
 
 logger = logging.getLogger(__name__)
+
+
+def format_tune(section):
+    """Parse the [tune] config section into typed Python values using JSON parsing."""
+    return {key: json.loads(val) for key, val in section.items()}
+
 
 class DataBuilderXNAT:
 
