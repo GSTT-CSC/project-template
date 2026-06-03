@@ -125,6 +125,7 @@ mlruns/
 *.csv
 *.ipynb
 *.txt
+!**/requirements.txt
 
 #git hooks
 .files_exceptions
