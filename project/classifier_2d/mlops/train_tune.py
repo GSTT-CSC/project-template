@@ -20,19 +20,20 @@ logger = logging.getLogger(__name__)
 
 
 def setup_environment(config):
-    # Set CUDA devices, workers and random seed for reproducibility
+    """Set CUDA device and global random seed.
+    Returns num_workers (int), capped at CPU count."""
 
     os.environ["CUDA_VISIBLE_DEVICES"] = config["system"]["cuda_visible_devices"]
     pl.seed_everything(int(config['system']['random_seed']), workers=True)
 
-    # Sets the number of workers for // dataloading
     max_workers = int(config['system']['max_workers'])
     return min(max_workers, multiprocessing.cpu_count())
 
 
 def setup_data(config, num_workers):
-    # Create raw dataset
-
+    """ Raw data import function - connects to XNAT, 
+    downloads images and returns raw dataset."""
+    
     xnat_configuration = {
         'server': config['xnat']['server'],
         'user': config['xnat']['user'],
@@ -47,8 +48,9 @@ def setup_data(config, num_workers):
 
 
 def suggest_hyperparameters(trial, config):
-    # Parse tune search space, suggest a value for each hp, and patch config in place.
-    # This means build_experiment always reads from config regardless of mode.
+    """ Updates selected hyperparameters in config by sampling one value 
+    per config[tune] key using Optuna. Returns sampled values for logging."""
+
     tune = format_tune(config['tune'])
     suggested = {}
 
@@ -62,13 +64,12 @@ def suggest_hyperparameters(trial, config):
         suggested[key] = val
         config['params'][key] = str(val)
 
-    return suggested  # returned for mlflow logging
+    return suggested
 
 
 def build_experiment(data, num_workers, config, checkpoint_dir):
-    # Builds DataModule, Network, and Trainer from config.
-    # In tune mode, config has been patched by suggest_hyperparameters.
-    
+    """Build DataModule, Network, and Trainer from config."""
+
     label_dict = json.loads(config['project']['label_dict'])
 
     dm = DataModule(
@@ -155,7 +156,9 @@ def build_experiment(data, num_workers, config, checkpoint_dir):
 
 
 def objective(trial, data, num_workers, config):
-
+    """Optuna trial objective; returns best model score for optimisation. 
+    Opens one nested mlflow run per trial. """
+    
     with mlflow.start_run(nested=True):
 
         # Update config with optuna suggested hps, and return updated params for logging
@@ -176,8 +179,8 @@ def objective(trial, data, num_workers, config):
 
 
 def run_training(data, num_workers, config):
-
-    # training module within an mlflow run    
+    """Training pipeline: fits, tests, exports the model as TorchScript, 
+    and logs all artifacts."""
 
     with mlflow.start_run(nested=True):
 
@@ -230,8 +233,9 @@ def run_training(data, num_workers, config):
 
 
 def run_tuning(data, num_workers, config):
-
-    # tuning module - each trial is run within an mlflow run (defined in objective)
+    """Tuning pipeline with Optuna: for each trial, run training cycle 
+    with sampled hyperparmeters as defined in config[tune]. Logs a
+    summary of best trial as an artifact. """
 
     mlflow.pytorch.autolog(log_models=False)
 
