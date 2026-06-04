@@ -87,14 +87,18 @@ class DataModule(pytorch_lightning.LightningDataModule):
         self.labels = [int(sample['action_data']) for subject in data for sample in subject['data'] if
                        sample['data_label'] == 'label']
         
-        train_val_data, self.test_data = train_test_split(
-            data,
-            test_size=self.test_fraction,
-            stratify=self.labels,
-            random_state=self.random_seed,
+        if self.test_fraction > 0:
+            train_val_data, self.test_data = train_test_split(
+                data,
+                test_size=self.test_fraction,
+                stratify=self.labels,
+                random_state=self.random_seed,
             )
+            val_size = self.validation_fraction / (1.0 - self.test_fraction)
+        else:
+            train_val_data, self.test_data = data, []
+            val_size = self.validation_fraction
 
-        val_size = self.validation_fraction / (1.0 - self.test_fraction)
         train_val_labels = self.get_labels(train_val_data)
         self.train_data, self.validation_data = train_test_split(
             train_val_data,
@@ -113,35 +117,33 @@ class DataModule(pytorch_lightning.LightningDataModule):
 
         mlflow.log_dict(self.data_manifest, "data_manifest.json")
 
+        val_transform = SafeWrapperTransform(transform=self.val_transforms,
+                                              log_file="val_transform_failures.csv",
+                                              image_size=self.image_size)
+        train_transform = SafeWrapperTransform(transform=self.train_transforms,
+                                               log_file="train_transform_failures.csv",
+                                               image_size=self.image_size)
+
         if self.cache_dataset:
-            self.val_dataset = CacheDataset(data=self.validation_data,
-                                            transform=SafeWrapperTransform(transform = self.val_transforms,
-                                                                           log_file = "val_transform_failures.csv",
-                                                                           image_size = self.image_size),
+            self.val_dataset = CacheDataset(data=self.validation_data, transform=val_transform,
                                             num_workers=self.num_workers)
-            self.test_dataset = CacheDataset(data=self.test_data,
-                                            transform=SafeWrapperTransform(transform=self.val_transforms,
-                                                               log_file="test_transform_failures.csv",
-                                                               image_size=self.image_size),
-                                            num_workers=self.num_workers)
-            self.train_dataset = CacheDataset(data=self.train_data,
-                                            transform=SafeWrapperTransform(transform = self.train_transforms,
-                                                                           log_file = "train_transform_failures.csv",
-                                                                           image_size = self.image_size),
-                                            num_workers=self.num_workers)
+            self.train_dataset = CacheDataset(data=self.train_data, transform=train_transform,
+                                              num_workers=self.num_workers)
         else:
-            self.val_dataset = Dataset(data=self.validation_data, transform=SafeWrapperTransform(transform = self.val_transforms,
-                                                                                log_file = "val_transform_failures.csv",
-                                                                                image_size = self.image_size)
-                                                                                )
-            self.test_dataset = Dataset(data=self.test_data, transform=SafeWrapperTransform(transform=self.val_transforms,
-                                                                                log_file="test_transform_failures.csv",
-                                                                                image_size=self.image_size)
-                                                                                )
-            self.train_dataset = Dataset(data=self.train_data, transform=SafeWrapperTransform(transform = self.train_transforms,
-                                                                                log_file = "train_transform_failures.csv",
-                                                                                image_size = self.image_size)
-                                                                                )
+            self.val_dataset = Dataset(data=self.validation_data, transform=val_transform)
+            self.train_dataset = Dataset(data=self.train_data, transform=train_transform)
+
+        if self.test_fraction > 0:
+            test_transform = SafeWrapperTransform(transform=self.val_transforms,
+                                                  log_file="test_transform_failures.csv",
+                                                  image_size=self.image_size)
+            if self.cache_dataset:
+                self.test_dataset = CacheDataset(data=self.test_data, transform=test_transform,
+                                                 num_workers=self.num_workers)
+            else:
+                self.test_dataset = Dataset(data=self.test_data, transform=test_transform)
+        else:
+            self.test_dataset = Dataset(data=[])  # empty dataset; test_dataloader returns 0 batches safely
 
     def train_dataloader(self):
         """

@@ -111,7 +111,7 @@ class Network(pytorch_lightning.LightningModule, ABC):
             self.register_buffer('validation_class_weights_tensor',
                                 torch.tensor(validation_class_weights, dtype=torch.float32))
             self.register_buffer('test_class_weights_tensor',
-                        torch.tensor(test_class_weights, dtype=torch.float32))
+                                torch.tensor(test_class_weights, dtype=torch.float32))
         else:
             self.train_class_weights_tensor = None
             self.validation_class_weights_tensor = None
@@ -257,6 +257,8 @@ class Network(pytorch_lightning.LightningModule, ABC):
         y = y[valid_labels_mask]
         y_hat = self(x)
 
+        # if test_fraction=0, loss calculation will raise an error - this is intentional, and aims to flag
+        # to the user that this should not happen - test step should not run if test_fraction=0.
         loss = self.test_loss_function(y_hat, y)
         self.log('test_loss', loss, on_step=False, on_epoch=True, batch_size=self.batch_size, sync_dist=True)
 

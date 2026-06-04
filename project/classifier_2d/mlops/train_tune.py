@@ -192,7 +192,10 @@ def run_training(data, num_workers, config):
         mlflow.log_param('n_classes', n_classes)
 
         trainer.fit(net, dm)
-        trainer.test(net, dm, ckpt_path=checkpoint_callback.best_model_path)
+
+        # run test set evaluation with best model only if non-zero test fraction
+        if float(config['params']['test_fraction']) > 0:
+            trainer.test(net, dm, ckpt_path=checkpoint_callback.best_model_path)
 
         # load best model checkpoint and log to mlflow
         checkpoint = torch.load(checkpoint_callback.best_model_path)
@@ -223,11 +226,13 @@ def run_training(data, num_workers, config):
         logger.info('Finding best threshold')
         best_model = net.load_from_checkpoint(checkpoint_callback.best_model_path)
         net.evaluate_best_model(best_model, split='val')
-        net.evaluate_best_model(best_model, split='test')
 
         mlflow.log_artifact('val_transform_failures.csv')
         mlflow.log_artifact('train_transform_failures.csv')
-        mlflow.log_artifact('test_transform_failures.csv')
+
+        if float(config['params']['test_fraction']) > 0:
+            net.evaluate_best_model(best_model, split='test')
+            mlflow.log_artifact('test_transform_failures.csv')
 
         logger.info('Training complete')
 
