@@ -1,0 +1,46 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
+
+name: Development tests
+
+on:
+  pull_request:
+
+env:
+  PROJECT_NAME: template  # the project name
+  APPLICATION_DIR: project  # the name of the main directory that contains the project code
+  TEST_DIR: tests  # the name of the directory that contains the tests
+
+jobs:
+
+  build-and-test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Build and tag image
+        run: docker build -t $PROJECT_NAME:latest .
+
+      - name: Setup flake8 annotations
+        uses: rbialon/flake8-annotations@v1
+
+      - name: Lint with flake8
+        run: |
+          # stop the build if there are Python syntax errors or undefined names
+          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 /$APPLICATION_DIR --count --select=E9,F63,F7,F82 --show-source --statistics
+          # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+          docker run --mount type=bind,source=$(pwd),target=/$APPLICATION_DIR $PROJECT_NAME flake8 /$APPLICATION_DIR --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Test with pytest
+        run: |
+          coverage run -m --source=project pytest --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=$APPLICATION_DIR $TEST_DIR/ | tee pytest-coverage.txt
+
+      - name: Pytest coverage comment
+        id: coverageComment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: ./pytest-coverage.txt
+          junitxml-path: ./pytest.xml
