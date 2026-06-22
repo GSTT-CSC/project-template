@@ -129,6 +129,9 @@ mlruns/
 
 #local config files
 **/local_config.cfg
+/project/segmentation_3d/regions/*
+!/project/segmentation_3d/regions/example/
+!/project/segmentation_3d/regions/example/**
 
 #git hooks
 .files_exceptions
