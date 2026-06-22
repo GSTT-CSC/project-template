@@ -1,0 +1,497 @@
+"""
+From XNAT data, create an nnU-Net v2 compatible dataset locally.
+
+This is not lightning ``DataModule``!
+
+nnU-Net performs its own data loading/augmentation, so this class only creates the
+nnU-Net v2 directory schema on disk (``DatasetXXX_<model>/{imagesTr,labelsTr,imagesTs}``
+plus ``dataset.json``) from data held on XNAT.
+
+XNAT structure: each subject has, attached to an RTSTRUCT scan, a NIFTI resource that
+contains a pre-converted image volume NIfTI (.nii.gz) and one .nii.gz per labelled structure.
+
+Per-structure NIfTIs are combined into a single multi-label mask via ``nifti_contour_combiner``.
+
+Which image/contour files to use is defined in ``regions.json``.
+"""
+
+import os
+import shutil
+import glob
+import tempfile
+import uuid
+import logging
+import json
+import xnat
+import pandas as pd
+from datetime import datetime
+from pathlib import Path
+from typing import List
+
+from sklearn.model_selection import train_test_split
+from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
+from xnat.mixin import ImageScanData, SubjectData
+
+from shared.xnat_tools import DataBuilderXNAT
+from src.utils.nifti_tools import nifti_contour_combiner
+
+pd.set_option('display.max_columns', None, 'display.max_colwidth', None)
+
+logger = logging.getLogger(__name__)
+
+
+class DataModule_nnUNetV2():
+
+    def __init__(self, data_dir: str = './',
+                 xnat_configuration: dict = None,
+                 batch_size: int = 1,
+                 num_workers: int = 4,
+                 test_batch: int = 0,
+                 train_fraction: float = 0.9,
+                 test_fraction: float = 0.1,
+                 train_val_ratio: float = 0.2,
+                 random_seed: int = 42,
+                 **kwargs,
+                 ):
+        super().__init__()
+        self.data_dir = data_dir
+        self.num_workers = num_workers
+        self.batch_size = batch_size
+        self.train_val_ratio = train_val_ratio
+        self.train_fraction = train_fraction
+        self.test_fraction = test_fraction
+        self.random_seed = random_seed
+        self.xnat_configuration = xnat_configuration
+        self.test_batch = test_batch
+        self.tmp_dirs_configuration = kwargs.get("tmp_dirs_configuration", None)
+        self.regions_json_path = kwargs.get("regions_json_path", None)
+
+    def make_tmp_dir(self) -> None:
+        """
+        Make temporary working directory in OS tmp folder in the format:
+        <folder_prefix>_<datetime>_<uuid>
+        """
+
+        if not os.path.isdir(self.tmp_dirs_configuration["os_tmp_dir"]):
+            raise Exception("Operating system tmp directory not found.")
+
+        self.tmp_working_dir = os.path.join(
+            self.tmp_dirs_configuration["os_tmp_dir"],
+            self.tmp_dirs_configuration["tmp_working_dir"]
+            + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+            + "_" + uuid.uuid4().hex[:8]
+            )
+
+        os.makedirs(self.tmp_working_dir, exist_ok=True)
+        logger.debug(f'Created temporary working directory: {self.tmp_working_dir}')
+
+    def make_nnunet_base_dirs(self) -> None:
+        """
+        Make nnU-Net base folder structure (raw / results / preprocessed).
+        """
+
+        if not os.path.isdir(self.tmp_working_dir):
+            raise Exception("Working directory not found or does not exist.")
+
+        self.nnunet_raw_dir = os.path.join(self.tmp_working_dir, self.tmp_dirs_configuration["nnunet_raw_dir"])
+        self.nnunet_results_dir = os.path.join(self.tmp_working_dir, self.tmp_dirs_configuration["nnunet_results_dir"])
+        self.nnunet_preprocessed_dir = os.path.join(self.tmp_working_dir, self.tmp_dirs_configuration["nnunet_preprocessed_dir"])
+
+        for folder in (self.nnunet_raw_dir, self.nnunet_results_dir, self.nnunet_preprocessed_dir):
+            os.makedirs(folder, exist_ok=True)
+
+        logger.debug(f'Created nnUNet directory structure: {os.listdir(self.tmp_working_dir)}')
+
+    def make_nnunet_dataset_dirs(self, modelnames: List = None) -> None:
+        """
+        Make nnU-Net DatasetXXX sub-directory structure
+            e.g.
+                Dataset001_Lungs/
+                    imagesTr/
+                    imagesTs/
+                    labelsTr/
+
+        Inputs:
+            modelnames: List of modelnames used to populate DatasetXXX folder names
+        """
+
+        if not os.path.isdir(self.tmp_working_dir):
+            raise Exception("Working directory not found or does not exist.")
+        if not os.path.isdir(self.nnunet_raw_dir):
+            raise Exception(f"{self.nnunet_raw_dir} not found or does not exist.")
+        if isinstance(modelnames, str):
+            modelnames = [modelnames]
+
+        ctr = 1
+        for modelname in modelnames:  # note: loop currently redundant; workflow deals with one DatasetXXX folder
+            self.dataset_dir_name = "Dataset" + "{0:03}".format(ctr) + "_" + modelname
+            for folder in [
+                "imagesTr",
+                "imagesTs",
+                "labelsTr"
+            ]:
+                os.makedirs(os.path.join(self.nnunet_raw_dir, self.dataset_dir_name, folder), exist_ok=True)
+
+            ctr += 1
+
+    def get_xnat_data(self) -> None:
+        """
+        Fetches raw XNAT data and stores in raw_data attribute
+        """
+
+        actions = [(self.fetch_resource_nifti, "nifti")]
+
+        data_builder = DataBuilderXNAT(self.xnat_configuration,
+                                       actions=actions,
+                                       num_workers=self.num_workers)
+
+        data_builder.fetch_data()
+        self.raw_data = data_builder.dataset
+
+    def validate_data(self, files_to_validate: List = None) -> None:
+        """
+        Validate XNAT object contains necessary files for training
+
+        Returns:
+            file_validation_dict: Nested Dict containing subject IDs and boolean depending if file exists in XNAT object,
+                e.g.:
+                    file_validation_dict = {
+                        SUBJECT_1
+                            CONTOUR1.nii.gz: True
+                            CONTOUR2.nii.gz: True
+                            CONTOUR3.nii.gz: True
+                        SUBJECT_2
+                            CONTOUR1.nii.gz: True
+                            CONTOUR2.nii.gz: False
+                            CONTOUR3.nii.gz: False
+                        etc.
+                    }
+        """
+
+        if not files_to_validate:
+            raise Warning("List of regions to validate not found or missing.")
+        if not self.raw_data:
+            raise Exception("raw_data not found.")
+        else:
+            xnat_data_obj = self.raw_data
+        if type(files_to_validate) == str:
+            files_to_validate = [files_to_validate]
+
+        # validate files for training exist in XNAT data object
+        logger.info("Validating specified files exist in XNAT object:")
+        for fl in files_to_validate:
+            logger.info(f"{fl}")
+
+        # initialise empty file validation dictionary
+        file_validation_dict = {}
+        for subject in xnat_data_obj:
+            file_validation_dict[subject['subject_id']] = {}
+            for fl in files_to_validate:
+                file_validation_dict[subject['subject_id']][fl] = None
+
+        # check each subject in XNAT object contains specified files, update validation dictionary accordingly
+        for subject in xnat_data_obj:
+            logger.info(f"Validating subject: {subject['subject_id']} ...")
+            subject_files = subject['data'][0]['resource_files']
+            for fl in files_to_validate:
+                if fl in subject_files:
+                    logger.info(f"{fl} exists.")
+                    file_validation_dict[subject['subject_id']][fl] = True
+                elif fl not in subject_files:
+                    logger.info(f"{fl} not found.")
+                    file_validation_dict[subject['subject_id']][fl] = False
+
+        # add some metadata
+        file_validation_dict['num_files_per_subject'] = len(files_to_validate)
+
+        return file_validation_dict
+
+    def xnat_open_connection(self):
+        logger.info("Opening XNAT connection ...")
+        xnat_connection = xnat.connect(
+                server=self.xnat_configuration['server'],
+                user=self.xnat_configuration['user'],
+                password=self.xnat_configuration['password'],
+                verify=self.xnat_configuration['verify'],
+                loglevel='ERROR',
+            )
+        return xnat_connection
+
+    def xnat_download_session_object(
+            self,
+            xnat_connection_obj=None,
+            subject_xnat_uri: str = None,
+            output_dir: str = None,
+            expected_filetype: str = ".nii.gz"
+    ):
+        """
+        Open the XNAT Session object for a single subject and download its contents to a
+        directory (e.g. all NIfTI files within one subject's Session object).
+        """
+
+        if xnat_connection_obj is None:
+            xnat_connection_obj = self.xnat_open_connection
+
+        session_obj = xnat_connection_obj.create_object(subject_xnat_uri)
+
+        session_obj.download_dir(output_dir, verbose=False)
+        file_paths = glob.glob(
+            os.path.join(output_dir, '**/*' + expected_filetype), recursive=True)
+
+        return file_paths
+
+    def copy_files_xnat_to_destination(
+            self,
+            subject_xnat_uri: str = None,
+            destination_uri: str = None,
+            filenames_to_copy: List[str] = None,
+            combine_nifti: bool = False
+    ):
+        """
+        Copy files from an XNAT session object to a destination directory.
+
+        When ``combine_nifti`` is True the listed contour NIfTIs are merged into a single
+        multi-label mask (via ``nifti_contour_combiner``) before copying.
+        """
+
+        xnat_connection = self.xnat_open_connection()
+
+        with tempfile.TemporaryDirectory() as session_tmp_holding_dir:
+            session_obj_file_uris = self.xnat_download_session_object(
+                    xnat_connection_obj=xnat_connection,
+                    subject_xnat_uri=subject_xnat_uri,
+                    output_dir=session_tmp_holding_dir
+                )
+
+            if not os.path.isdir(os.path.dirname(destination_uri)):
+                raise Exception("Cannot copy files. Destination directory not found or does not exist.")
+
+            if isinstance(filenames_to_copy, str):
+                filenames_to_copy = [filenames_to_copy]
+
+            if combine_nifti:
+
+                input_nifti_uris = []
+                for specified_fl in filenames_to_copy:
+                    for uri in session_obj_file_uris:
+                        if specified_fl in uri:
+                            input_nifti_uris.append(uri)
+
+                nifti_holding_dir_uri = os.path.join(session_tmp_holding_dir, "tmp_nifti.nii.gz")
+                nifti_contour_combiner(
+                    input_nifti_uris=input_nifti_uris,
+                    output_nifti_uri=nifti_holding_dir_uri
+                )
+                shutil.copy(nifti_holding_dir_uri, destination_uri)
+                logger.info(f"Copied combined contours NIfTI to: {destination_uri}")
+
+            else:
+                for specified_fl in filenames_to_copy:
+                    for uri in session_obj_file_uris:
+                        if specified_fl in uri:
+                            shutil.copy(uri, destination_uri)
+                            logger.info(f"Copied: {uri} to: {destination_uri}")
+
+    def _dataset_dest_uri(self, idx, subfolder, suffix):
+        """Build a Struct_NNN destination path inside the dataset's nnU-Net subfolder."""
+
+        return os.path.join(
+            self.nnunet_raw_dir,
+            self.dataset_dir_name,
+            subfolder,
+            "Struct_" + "{0:03}".format(idx) + suffix,
+        )
+
+    def setup(self):
+        """
+        Prepare the nnU-Net dataset: pull from XNAT, validate, split, download, and write
+        ``dataset.json``.
+        """
+        
+        # 1. initialise dir structure
+        self.make_tmp_dir()
+        self.make_nnunet_base_dirs()
+
+
+        # 2. get XNAT object
+        self.get_xnat_data()
+
+
+        # 3. Organise data
+        df = pd.DataFrame(
+            [
+                {
+                    'SUBJECT_ID': subject['subject_id'],
+                    'XNAT_SUBJECT_URI': subject['subject_uri'],
+                    'XNAT_NIFTI_DATA_URI': subject['data'][0]['action_data'],
+                }
+                for subject in self.raw_data
+            ]
+        )
+
+
+        # 4. Parse regions.json file once (improvable as uses a single filename/modelname)
+        if not (os.path.isfile(self.regions_json_path) and self.regions_json_path.endswith(".json")):
+            raise TypeError("Regions JSON file not found or not specified.")
+        
+        with open(self.regions_json_path) as jsonfile:
+            regions_cfg = json.load(jsonfile)
+                    
+        image_data_filename = regions_cfg["image_filenames"][0]  # TODO permit >1 image_data filename
+        regions_to_train = regions_cfg["training_models"]
+        modelname = regions_to_train[0]['modelname']             # TODO permit >1 modelname?
+        contour_filenames = regions_to_train[0]['contour_filenames']
+        image_channel_name = regions_cfg.get("image_channel_name", "CT")
+
+
+        # 5. Validate Image Data
+        image_data_validation = self.validate_data(files_to_validate=image_data_filename)
+        df["IS_IMAGE_DATA_FILE"] = df["SUBJECT_ID"].map(lambda sub: image_data_validation[sub][image_data_filename])
+        df["IMAGE_DATA_FILE_NAME"] = image_data_filename
+
+
+        # 6. Validate contour files (single pass)
+        contours_validation = self.validate_data(files_to_validate=contour_filenames)
+        for contour_idx, fl in enumerate(contour_filenames):
+            col_name = f"CONTOUR_{contour_idx+1}_FILE_NAME"
+            col_status = f"IS_CONTOUR_{contour_idx+1}_FILE"
+            
+            df[col_status] = df["SUBJECT_ID"].map(lambda sub: contours_validation[sub][fl])
+            df[col_name] = fl
+
+
+        # 7. Check all contours present per subject and filter down
+        is_contour_columns = [f"IS_CONTOUR_{i+1}_FILE" for i in range(len(contour_filenames))]        
+        df["IS_ALL_CONTOUR_FILES"] = df[is_contour_columns].all(axis=1)
+
+        logger.info(f"Number of subjects with all required contours: {df['IS_ALL_CONTOUR_FILES'].sum()}")
+        logger.info(f"Number of subjects without all required contours: {(~df['IS_ALL_CONTOUR_FILES']).sum()}")        
+        df = df[df["IS_ALL_CONTOUR_FILES"]].reset_index(drop=True)
+
+
+        # 8. Create folder paths for nnU-Net
+        self.make_nnunet_dataset_dirs(modelnames=modelname)
+
+
+        # 9. Data split
+        # note, for nnU-Net v2:
+        # len(imagesTr) == len(labelsTr) == train_size
+        # len(imagesTs) == test_size        
+        df_train, df_test = train_test_split(
+            df, train_size=self.train_fraction, test_size=self.test_fraction,
+            random_state=self.random_seed
+        )
+
+        logger.info(f'{len(df_train)} cases in training set, out of {len(df)} total cases.')
+        logger.info(f'{len(df_test)} cases in test set, out of {len(df)} total cases.')
+
+        logger.info(f'Training Fraction = {self.train_fraction}')
+        logger.info(f'Test Fraction = {self.test_fraction}')
+        if self.train_fraction + self.test_fraction < 1:
+            logger.warning('Train/Test split ratio < 1. Proceeding with subset of all data')        
+
+        df["IS_TRAIN_SUBJECT"] = df.index.isin(df_train.index)
+        df["IS_TEST_SUBJECT"] = df.index.isin(df_test.index)
+
+        # 10. Map destination paths
+        df["SUBJECT_INDEX"] = df.index + 1
+        
+        df["TRAIN_LABEL_DEST_URI"] = df.apply(
+            lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "labelsTr", ".nii.gz") if row["IS_TRAIN_SUBJECT"] else None, axis=1
+        )
+        df["TRAIN_IMAGE_DEST_URI"] = df.apply(
+            lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "imagesTr", "_0000.nii.gz") if row["IS_TRAIN_SUBJECT"] else None, axis=1
+        )
+        df["TEST_IMAGE_DEST_URI"] = df.apply(
+            lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "imagesTs", "_0000.nii.gz") if row["IS_TEST_SUBJECT"] else None, axis=1
+        )
+
+        self.df = df
+
+
+        # 11. download files from XNAT to nnU-Net directories
+        # training labels, combined into single multi-label mask
+        contour_column_names = [f"CONTOUR_{i+1}_FILE_NAME" for i in range(len(contour_filenames))]
+        
+        logger.info("Copying training label data ...")
+        for _, row in df[df["IS_TRAIN_SUBJECT"]].iterrows():
+            self.copy_files_xnat_to_destination(
+                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
+                destination_uri=row["TRAIN_LABEL_DEST_URI"],
+                filenames_to_copy=row[contour_column_names].tolist(),
+                combine_nifti=True
+            )
+            
+        logger.info("Copying training image data ...")
+        for _, row in df[df["IS_TRAIN_SUBJECT"]].iterrows():
+            self.copy_files_xnat_to_destination(
+                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
+                destination_uri=row["TRAIN_IMAGE_DEST_URI"],
+                filenames_to_copy=row["IMAGE_DATA_FILE_NAME"]
+            )
+            
+        logger.info("Copying test image data ...")
+        for _, row in df[df["IS_TEST_SUBJECT"]].iterrows():
+            self.copy_files_xnat_to_destination(
+                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
+                destination_uri=row["TEST_IMAGE_DEST_URI"],
+                filenames_to_copy=row["IMAGE_DATA_FILE_NAME"]
+            )
+
+
+        # 12. Construct dataset.json
+        labels = ["background"] + [c.replace(".nii.gz", "").replace("Struct_", "").lower() for c in contour_filenames]
+        label_values = list(range(len(labels)))
+
+        self.generate_dataset_json(
+            num_training_cases=int(df["IS_TRAIN_SUBJECT"].sum()),
+            labels_dict=dict(zip(labels, label_values)),
+            image_channel_name=image_channel_name,
+        )
+
+        logger.info("DataModule_nnUNetV2.setup() complete.")
+
+
+    @staticmethod
+    def fetch_resource_nifti(subject_data: SubjectData = None) -> List[ImageScanData]:
+        """
+        Walk the XNAT SubjectData object and return the ScanData "NIFTI" Resource object
+        attached to the subject's RTSTRUCT scan.
+
+        Note: this returns an XNAT object describing the files, not the files themselves;
+        downloading happens later in ``copy_files_xnat_to_destination``.
+        """
+
+        output = []
+        for exp in subject_data.experiments:
+            for scan in exp.scans:
+                # Identify RTSTRUCT XNAT ScanData object
+                if scan.modality.lower() == 'rtstruct':
+                    for resource in scan.resources:
+                        # Identify NIFTI XNAT Resource object
+                        if resource.label.lower() == 'nifti':
+                            output.append(resource)
+        if len(output) > 1:
+            raise TypeError("More than one NIFTI resource found for subject.")
+        return output
+
+    def generate_dataset_json(self, num_training_cases: int, labels_dict: dict, image_channel_name: str = "CT"):
+        """
+        Invoke nnU-Net's ``generate_dataset_json`` to create the dataset.json file.
+
+        Inputs:
+            num_training_cases - number of training datasets
+            labels_dict - dict of contour label names, e.g. {"background": 0, "lungs": 1}
+            image_channel_name - input channel name written to dataset.json (e.g. "CT", "MR")
+        """
+        
+        generate_dataset_json(
+            os.path.join(self.nnunet_raw_dir, self.dataset_dir_name),
+            channel_names={
+                0: image_channel_name
+            },
+            labels=labels_dict,
+            file_ending=".nii.gz",
+            num_training_cases=num_training_cases
+        )
+        logger.info(f"Generated dataset.json (channel 0 = {image_channel_name}).")
