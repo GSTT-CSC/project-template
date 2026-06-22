@@ -127,6 +127,9 @@ mlruns/
 *.txt
 !**/requirements.txt
 
+#local config files
+**/local_config.cfg
+
 #git hooks
 .files_exceptions
 .sensitive_exceptions
