@@ -1,0 +1,21 @@
+{
+    "xnat_project_name": "XNAT_PROJECT_NAME",
+    "xnat_project_id": "XNAT_PROJECT_ID",
+    "regions_json_version": "0.0.0",
+    "image_channel_name": "CT",
+    "image_filenames": [
+        "image-data.nii.gz"
+    ],
+    "training_models": [
+        {
+            "modelname": "MODEL_NAME",
+            "contour_filenames": [
+                "CONTOUR_NAME_1.nii.gz",
+                "CONTOUR_NAME_2.nii.gz"
+            ],
+            "possibly_empty_contour_filenames": [
+                "CONTOUR_NAME_2.nii.gz"
+            ]
+        }
+    ]
+}

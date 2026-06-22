@@ -1,0 +1,6 @@
+csc-mlops==0.10.1
+nnunetv2==2.5.2
+nibabel
+pandas
+scikit-learn
+xnat==0.8.0
