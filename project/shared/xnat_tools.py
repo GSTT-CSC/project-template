@@ -8,6 +8,7 @@ import mlflow
 import pandas as pd
 import tqdm
 import xnat
+from requests.adapters import HTTPAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,11 @@ class DataBuilderXNAT:
                               verify=self.xnat_configuration['verify'],
                               loglevel='ERROR',
                               ) as session:
+
+                # Size the HTTP connection pool to the worker count
+                pool_adapter = HTTPAdapter(pool_connections=self.num_workers, pool_maxsize=self.num_workers)
+                session.interface.mount("http://", pool_adapter)
+                session.interface.mount("https://", pool_adapter)
 
                 logger.info(f"Collecting XNAT project: {self.xnat_configuration['project']}")
                 project = session.projects[self.xnat_configuration["project"]]
