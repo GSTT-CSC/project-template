@@ -229,9 +229,6 @@ class DataModule_nnUNetV2():
         directory (e.g. all NIfTI files within one subject's Session object).
         """
 
-        if xnat_connection_obj is None:
-            xnat_connection_obj = self.xnat_open_connection
-
         session_obj = xnat_connection_obj.create_object(subject_xnat_uri)
 
         session_obj.download_dir(output_dir, verbose=False)
@@ -240,57 +237,41 @@ class DataModule_nnUNetV2():
 
         return file_paths
 
-    def copy_files_xnat_to_destination(
-            self,
-            subject_xnat_uri: str = None,
-            destination_uri: str = None,
-            filenames_to_copy: List[str] = None,
-            combine_nifti: bool = False
-    ):
+    def process_subject(self, row, xnat_connection, contour_column_names):
         """
-        Copy files from an XNAT session object to a destination directory.
-
-        When ``combine_nifti`` is True the listed contour NIfTIs are merged into a single
-        multi-label mask (via ``nifti_contour_combiner``) before copying.
+        Download a subject's XNAT session and write its nnU-Net files.
+        Train subject -> combined multi-label mask (labelsTr) + image (imagesTr);
+        Test subject -> image only (imagesTs).
         """
-
-        xnat_connection = self.xnat_open_connection()
 
         with tempfile.TemporaryDirectory() as session_tmp_holding_dir:
-            session_obj_file_uris = self.xnat_download_session_object(
-                    xnat_connection_obj=xnat_connection,
-                    subject_xnat_uri=subject_xnat_uri,
-                    output_dir=session_tmp_holding_dir
-                )
+            session_file_uris = self.xnat_download_session_object(
+                xnat_connection_obj=xnat_connection,
+                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
+                output_dir=session_tmp_holding_dir,
+            )
 
-            if not os.path.isdir(os.path.dirname(destination_uri)):
-                raise Exception("Cannot copy files. Destination directory not found or does not exist.")
+            def find(filename):
+                match = next((uri for uri in session_file_uris if filename in uri), None)
+                if match is None:
+                    raise FileNotFoundError(
+                        f"Expected file '{filename}' not found in the XNAT session download."
+                    )
+                return match
 
-            if isinstance(filenames_to_copy, str):
-                filenames_to_copy = [filenames_to_copy]
+            if row["IS_TRAIN_SUBJECT"]:
+                # Label: combine the subject's contour NIfTIs into one multi-label mask.
+                # Filename order sets the label order (contour 1 -> 1, contour 2 -> 2, ...).
+                contour_uris = [find(fl) for fl in row[contour_column_names].tolist()]
+                combined_uri = os.path.join(session_tmp_holding_dir, "tmp_nifti.nii.gz")
+                nifti_contour_combiner(input_nifti_uris=contour_uris, output_nifti_uri=combined_uri)
+                shutil.copy(combined_uri, row["TRAIN_LABEL_DEST_URI"])
+                shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), row["TRAIN_IMAGE_DEST_URI"])
+                logger.info(f"Wrote training label + image for subject index {row['SUBJECT_INDEX']}")
 
-            if combine_nifti:
-
-                input_nifti_uris = []
-                for specified_fl in filenames_to_copy:
-                    for uri in session_obj_file_uris:
-                        if specified_fl in uri:
-                            input_nifti_uris.append(uri)
-
-                nifti_holding_dir_uri = os.path.join(session_tmp_holding_dir, "tmp_nifti.nii.gz")
-                nifti_contour_combiner(
-                    input_nifti_uris=input_nifti_uris,
-                    output_nifti_uri=nifti_holding_dir_uri
-                )
-                shutil.copy(nifti_holding_dir_uri, destination_uri)
-                logger.info(f"Copied combined contours NIfTI to: {destination_uri}")
-
-            else:
-                for specified_fl in filenames_to_copy:
-                    for uri in session_obj_file_uris:
-                        if specified_fl in uri:
-                            shutil.copy(uri, destination_uri)
-                            logger.info(f"Copied: {uri} to: {destination_uri}")
+            elif row["IS_TEST_SUBJECT"]:
+                shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), row["TEST_IMAGE_DEST_URI"])
+                logger.info(f"Wrote test image for subject index {row['SUBJECT_INDEX']}")
 
     def _dataset_dest_uri(self, idx, subfolder, suffix):
         """Build a Struct_NNN destination path inside the dataset's nnU-Net subfolder."""
@@ -409,34 +390,14 @@ class DataModule_nnUNetV2():
         self.df = df
 
 
-        # 11. download files from XNAT to nnU-Net directories
-        # training labels, combined into single multi-label mask
+        # 11. Download each subject's XNAT session ONCE (reusing a single connection) and write
+        #     its nnU-Net files from that single download (train: label + image; test: image).
         contour_column_names = [f"CONTOUR_{i+1}_FILE_NAME" for i in range(len(contour_filenames))]
-        
-        logger.info("Copying training label data ...")
-        for _, row in df[df["IS_TRAIN_SUBJECT"]].iterrows():
-            self.copy_files_xnat_to_destination(
-                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
-                destination_uri=row["TRAIN_LABEL_DEST_URI"],
-                filenames_to_copy=row[contour_column_names].tolist(),
-                combine_nifti=True
-            )
-            
-        logger.info("Copying training image data ...")
-        for _, row in df[df["IS_TRAIN_SUBJECT"]].iterrows():
-            self.copy_files_xnat_to_destination(
-                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
-                destination_uri=row["TRAIN_IMAGE_DEST_URI"],
-                filenames_to_copy=row["IMAGE_DATA_FILE_NAME"]
-            )
-            
-        logger.info("Copying test image data ...")
-        for _, row in df[df["IS_TEST_SUBJECT"]].iterrows():
-            self.copy_files_xnat_to_destination(
-                subject_xnat_uri=row["XNAT_NIFTI_DATA_URI"],
-                destination_uri=row["TEST_IMAGE_DEST_URI"],
-                filenames_to_copy=row["IMAGE_DATA_FILE_NAME"]
-            )
+
+        logger.info("Downloading subjects from XNAT and writing nnU-Net dataset files ...")
+        with self.xnat_open_connection() as xnat_connection:
+            for _, row in df[df["IS_TRAIN_SUBJECT"] | df["IS_TEST_SUBJECT"]].iterrows():
+                self.process_subject(row, xnat_connection, contour_column_names)
 
 
         # 12. Construct dataset.json
