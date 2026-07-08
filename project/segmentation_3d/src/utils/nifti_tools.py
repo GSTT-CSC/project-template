@@ -63,35 +63,30 @@ def nifti_contour_combiner(
 
     logger.info(f"Combining NIfTI files: {[os.path.basename(uri) for uri in input_nifti_uris]}")
 
-    # load
     nifti_objects = [nib.load(uri) for uri in input_nifti_uris]
 
     # check contour file dimensions match
     nifti_dims = [nifti_obj.header["dim"] for nifti_obj in nifti_objects]
-    nifti_dims_bool = [np.array_equal(nii, nifti_dims[0]) for nii in nifti_dims]
-    if not all(nifti_dims_bool):
+    if not all(np.array_equal(dim, nifti_dims[0]) for dim in nifti_dims):
         logger.warning("Inconsistent NIfTI dimensions. Skipping nifti_contour_combiner.")
         return
 
-    # set mask voxel values according to idx+1 in list
-    # np.round(...).astype(int) ensures integer label values
-    nifti_imgs = [
-        np.round(np.multiply(nii.get_fdata(), idx+1)).astype(int)
-        for idx, nii in enumerate(nifti_objects)
-    ]
-    nifti_combined_img = np.rollaxis(np.stack(nifti_imgs, axis=3), axis=3)
+    # Build the multi-label mask incrementally as uint8: read each contour one at a time and combine
+    combined_mask = None
+    for idx, nifti_obj in enumerate(nifti_objects):
+        # this contour's label mask: value idx+1 where present, 0 elsewhere (uint8)
+        contour_label_mask = (np.asanyarray(nifti_obj.dataobj) > 0).astype(np.uint8) * (idx + 1)
+        if combined_mask is None:
+            combined_mask = np.zeros(contour_label_mask.shape, dtype=np.uint8)
+        combined_mask = mask_array_combiner(combined_mask, contour_label_mask)
 
-    logger.info(f"Combined NIfTI array label values: {np.unique(nifti_combined_img)}")
+    logger.info(f"Combined NIfTI array label values: {np.unique(combined_mask)}")
 
-    priority_mask = np.copy(nifti_combined_img[0])
-    secondary_masks = np.copy(nifti_combined_img[1::])
-    combined_mask = np.copy(priority_mask)
-    for mask in secondary_masks:
-        combined_mask = mask_array_combiner(combined_mask, mask)
-
-    # write NIfTI file
-    nifti_combined_object = nib.nifti1.Nifti1Image(combined_mask, None, header=nifti_objects[0].header.copy())
-    nib.save(nifti_combined_object, output_nifti_uri)
+    combined_object = nib.nifti1.Nifti1Image(
+        combined_mask, affine=None, header=nifti_objects[0].header.copy()
+    )
+    combined_object.set_data_dtype(np.uint8)
+    nib.save(combined_object, output_nifti_uri)
     logger.info(f"Combined contours NIfTI file saved to: {output_nifti_uri}")
     return output_nifti_uri
 
