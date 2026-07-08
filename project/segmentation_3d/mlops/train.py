@@ -127,9 +127,10 @@ def train(config):
     else:
         logger.info("Skipping nnUNetv2_find_best_configuration ...")
 
-    # nnUNetv2 predict (test set)
+    # nnUNetv2 predict (test set). Predictions are written under nnUNet_results (not raw) so
+    # log_nnunet_artifacts picks them up and logs them to MLflow.
     test_images_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "imagesTs")
-    test_labels_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "labelsTs_predicted")
+    test_labels_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted")
     cmd = commands.predict_command(spec, test_images_dir, test_labels_dir, device)
     logger.info(f"nnUNetv2_predict: {cmd}")
     nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
@@ -137,7 +138,7 @@ def train(config):
     # nnUNetv2 postprocessing
     if spec.use_npz:
         test_labels_pp_dir = os.path.join(
-            dm.nnunet_raw_dir, spec.dataset_name, "labelsTs_predicted_pp"
+            dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_pp"
         )
         postprocessing_file = nnunet_runtime.locate_file(artifact_dir, "postprocessing.pkl")
         cmd = commands.apply_postprocessing_command(

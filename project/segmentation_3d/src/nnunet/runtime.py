@@ -232,4 +232,9 @@ def _resolve_artifact_path(root: str):
     if any("crossval_results" in part for part in root_parts):
         return "crossval_results"
 
+    # Test-set predictions (labelsTs_predicted / labelsTs_predicted_pp) to mlflow subfolder
+    labels_ts_dir = next((part for part in root_parts if part.startswith("labelsTs")), None)
+    if labels_ts_dir is not None:
+        return labels_ts_dir
+
     return None
