@@ -6,6 +6,8 @@ This module wraps those subprocess calls and streamlines mlflow logging.
 import logging
 import os
 import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
@@ -68,6 +70,15 @@ def locate_file(path_to_walk: str, file_to_locate: str) -> str:
     return located_file_path
 
 
+def _tee_stream(pipe, log_file):
+    """Forward each line of a subprocess pipe to both the console and ``log_file``."""
+    for line in pipe:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        log_file.write(line)
+        log_file.flush()
+
+
 def run_command(
     cmd,
     artifact_dir,
@@ -77,15 +88,13 @@ def run_command(
     log_metrics: bool = False,
 ):
     """
-    Run nnU-Net CLI command ``cmd``, capturing stdout/stderr to ``subprocess.log``.
+    Run nnU-Net CLI command ``cmd``, send result to console and subprocess.log (which ends in mlflow).
 
     When ``log_metrics`` is True, ``checkpoint_latest.pth`` in
     ``artifact_dir`` is polled every ``poll_seconds`` and any newly available epoch
     metrics are logged to MLflow.
-    
-    On non-zero exit the logs are pushed to MLflow and a ``CalledProcessError`` is raised.
     """
-    
+
     os.makedirs(artifact_dir, exist_ok=True)
     subprocess_log_path = os.path.join(artifact_dir, "subprocess.log")
     ckpt_latest = Path(artifact_dir) / "checkpoint_latest.pth"
@@ -98,10 +107,15 @@ def run_command(
 
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess_log_file,
+            stdout=subprocess.PIPE, # output goes to memory for now
             stderr=subprocess.STDOUT,
             text=True,
+            bufsize=1,
         )
+
+        # subprocess.PIPE -> process.stdout -> _tee_stream -> console + subprocess.log
+        tee_thread = threading.Thread(target=_tee_stream, args=(process.stdout, subprocess_log_file), daemon=True)
+        tee_thread.start()
 
         if log_metrics:
             while process.poll() is None:
@@ -128,6 +142,7 @@ def run_command(
                 time.sleep(poll_seconds)
 
         return_code = process.wait()
+        tee_thread.join()
 
     if return_code != 0:
         logger.error(f"Command failed: {cmd} (exit {return_code})")

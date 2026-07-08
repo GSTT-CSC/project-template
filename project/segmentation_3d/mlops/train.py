@@ -178,6 +178,9 @@ def train(config):
 
 def main():
     # runs as train.py <config_file_path> via mlops run()
+
+    logging.basicConfig(level=logging.INFO, force=True)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
     args = parser.parse_args()
