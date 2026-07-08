@@ -1,5 +1,5 @@
 csc-mlops==0.10.1
-nnunetv2==2.5.2
+nnunetv2==2.8.0
 nibabel
 pandas
 scikit-learn

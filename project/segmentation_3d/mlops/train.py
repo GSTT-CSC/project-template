@@ -30,6 +30,18 @@ def setup_environment(config):
     
     logger.info(f"CUDA_VISIBLE_DEVICES = {os.environ['CUDA_VISIBLE_DEVICES']!r}")
 
+    # Bridge the optional [nnunet] NNUNET_N_PROC_DA config value to nnU-Net's env var
+    # (nnU-Net has no CLI flag for it). Blank -> leave unset -> nnU-Net default (~12).
+    n_proc_da = config["nnunet"].get("NNUNET_N_PROC_DA", "").strip()
+    if n_proc_da:
+        if not n_proc_da.isdigit() or int(n_proc_da) < 1:
+            raise ValueError(
+                f"Config error: nnunet.NNUNET_N_PROC_DA must be a positive integer or blank; "
+                f"got {n_proc_da!r}."
+            )
+        os.environ["nnUNet_n_proc_DA"] = n_proc_da
+        logger.info(f"nnUNet_n_proc_DA = {n_proc_da}")
+
     max_workers = int(config["system"]["MAX_WORKERS"])
     num_workers = min(max_workers, multiprocessing.cpu_count())
 

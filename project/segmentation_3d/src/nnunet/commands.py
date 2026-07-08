@@ -3,17 +3,9 @@ List of nnU-Net v2 system commands and config translation functions.
 """
 
 import json
-import logging
 import os
 from dataclasses import dataclass
 from typing import List, Optional
-
-logger = logging.getLogger(__name__)
-
-NNUNET_FOLD_INVALID_ERROR = (
-    "Config error: nnunet.NNUNET_FOLD must be a non-empty JSON list of "
-    "integers, e.g. [0]."
-)
 
 
 # ======================================================================================
@@ -21,7 +13,8 @@ NNUNET_FOLD_INVALID_ERROR = (
 # ======================================================================================
 @dataclass(frozen=True)
 class NNUNetModelSpec:
-    """A fully validated description of the nnU-Net model/training run."""
+    """Validated description of the nnU-Net model/training run."""
+
     dataset_id: str
     dataset_name: str
     folds: List[int]
@@ -36,13 +29,13 @@ class NNUNetModelSpec:
         # Variable validation only.
 
         if not str(self.dataset_id) or not str(self.dataset_id).isdigit():
-            raise ValueError("NNUNetModelSpec.dataset_id must be a non-empty numeric string.")
+            raise ValueError(f"NNUNetModelSpec.dataset_id must be a non-empty numeric string, got: {self.dataset_id}")
 
         # These fields must each be a single, non-empty string.
         for field_name in ("dataset_name", "trainer_name", "plans_identifier", "planner"):
             value = getattr(self, field_name)
             if not isinstance(value, str) or not value:
-                raise ValueError(f"NNUNetModelSpec.{field_name} must be a single non-empty string.")
+                raise ValueError(f"NNUNetModelSpec.{field_name} must be a single non-empty string, got: {value}")
 
         # configuration must also be one config. List means several configurations or ensembling,
         # not currently supported; error should refelect this.
@@ -70,9 +63,10 @@ class NNUNetModelSpec:
             and all(isinstance(fold, int) and not isinstance(fold, bool) for fold in self.folds)
         )
         if not is_folds_non_empty_list_of_ints:
-            raise ValueError("NNUNetModelSpec.folds must be a non-empty list of integers.")
+            raise ValueError(f"NNUNetModelSpec.folds must be a non-empty list of integers, got:{self.folds}.")
+        
         if self.gpu_memory_target is not None and self.gpu_memory_target <= 0:
-            raise ValueError("NNUNetModelSpec.gpu_memory_target must be positive when provided.")
+            raise ValueError(f"NNUNetModelSpec.gpu_memory_target must be positive when provided, got: {self.gpu_memory_target}.")
 
     @property
     def preprocess_configurations(self):
@@ -109,7 +103,7 @@ def nnunet_npz_enabled(config):
         return True
     if value == "false":
         return False
-    raise ValueError("Config error: NNUNET_NPZ must be set to True or False.")
+    raise ValueError(f"NNUNET_NPZ must be set to True or False, got: {value}.")
 
 
 def parse_nnunet_folds(config):
@@ -119,23 +113,18 @@ def parse_nnunet_folds(config):
     try:
         return json.loads(raw_folds)
     except json.JSONDecodeError as exc:
-        raise ValueError(NNUNET_FOLD_INVALID_ERROR) from exc
+        raise ValueError(f"nnunet.NNUNET_FOLD must be a non-empty JSON list of integers, e.g. [0], got: {raw_folds}.") from exc
 
 
 def parse_gpu_memory_target(config):
-    """Parse optional nnunet.NNUNET_GPU_MEMORY_TARGET (GB); returns int or None."""
-
+    """Parse optional nnunet.NNUNET_GPU_MEMORY_TARGET (GB). int>0 or blank """
+    
     raw = config["nnunet"]["NNUNET_GPU_MEMORY_TARGET"].strip()
     if not raw:
         return None
     if raw.isdigit():
         return int(raw)
-
-    logger.warning(
-        f"Invalid nnunet.NNUNET_GPU_MEMORY_TARGET value: {raw}. "
-        "Proceeding without GPU memory target."
-    )
-    return None
+    raise ValueError(f"nnunet.NNUNET_GPU_MEMORY_TARGET must be a positive integer (GB), got: {raw}.")
 
 
 def build_nnunet_model_spec(config, dm):
@@ -173,6 +162,7 @@ def multi_gpu_args(device):
 
 def fold_artifact_dir(results_dir, spec, fold, configuration):
     """Directory nnU-Net writes a fold's checkpoints/logs to (used for live metric logging)."""
+
     return os.path.join(
         results_dir,
         spec.dataset_name,
@@ -222,6 +212,7 @@ def find_best_configuration_command(spec):
     """
     Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/evaluation/find_best_configuration.py
     """
+
     # --disable_ensembling below is adequate on a single config. Extra guard here
     # such that if multiple configs are supported in the future, --disable_ensembling
     # can be removed. 
