@@ -179,7 +179,11 @@ def train(config):
 def main():
     # runs as train.py <config_file_path> via mlops run()
 
-    logging.basicConfig(level=logging.INFO, force=True)
+    # Match csc-mlops's log format
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        force=True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
