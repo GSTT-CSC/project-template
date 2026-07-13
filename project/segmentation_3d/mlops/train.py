@@ -3,6 +3,7 @@ import configparser
 import logging
 import multiprocessing
 import os
+import tempfile
 
 import mlflow
 
@@ -186,10 +187,13 @@ def train(config):
 def main():
     # runs as train.py <config_file_path> via mlops run()
 
-    # Match csc-mlops's log format
+    # Log to the console and to a file we can attach to the MLflow run (the cluster's stdout
+    # is not otherwise visible). Matches csc-mlops's log format.
+    log_path = os.path.join(tempfile.mkdtemp(), "run.log")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler(log_path)],
         force=True)
 
     parser = argparse.ArgumentParser()
@@ -199,7 +203,14 @@ def main():
     config = configparser.ConfigParser()
     config.read(args.config)
 
-    train(config)
+    try:
+        train(config)
+    finally:
+        # Attach the full run log even if training failed, so errors are visible in MLflow.
+        try:
+            mlflow.log_artifact(log_path, artifact_path="logs")
+        except Exception:
+            logger.exception("Failed to log run log to MLflow.")
 
 
 if __name__ == '__main__':

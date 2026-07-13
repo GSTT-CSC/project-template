@@ -171,10 +171,11 @@ RUN_OVERVIEW_DESCRIPTION = """\
 ## Artifacts
 - **fold_<f>/** — validation metrics per fold.
 - **crossval_results/** — validation metrics averaged over all folds, plus per-structure
-  Dice / size figures (`validation_dice.png`, `validation_structure_size.png`).
+  Dice / size figures (`cross_validation_dice.png`, `cross_validation_structure_size.png`).
 - **test_set/labelsTs_predicted/** — model predictions on the test set.
 - **test_set/labelsTs_predicted_pp/** — the same test predictions after nnU-Net's selected
   post-processing.
+- **logs/run.log** — terminal log for the run
 """
 
 

@@ -162,7 +162,7 @@ def plot_validation_summary(summary_json_path, output_dir, dataset_json_path=Non
     # shared structure alphabetical order (both figs)
     order = sorted(dice_per_structure, key=lambda k: names[k].lower())
 
-    subtitle = f"{len(summary["metric_per_case"])} validation cases"
+    subtitle = f"{len(summary['metric_per_case'])} validation cases"
 
     dice_rows = [("Foreground mean", get_per_case_summary(summary, "Dice"), True)]
     dice_rows += [(names[k], dice_per_structure[k], False) for k in order]
