@@ -1,5 +1,6 @@
 csc-mlops==0.10.1
 nnunetv2==2.8.0
+matplotlib==3.10.8
 nibabel
 pandas
 scikit-learn

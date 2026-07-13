@@ -161,6 +161,33 @@ def run_command(
         )
 
 
+RUN_OVERVIEW_DESCRIPTION = """\
+# nnU-Net v2 logging info
+
+## Per-epoch metrics (logged as `fold_<f>_<config>_<name>`)
+- **mean_fg_dice** — mean pseudo-Dice (estimated on patches) over the foreground labels on the validation split, per epoch.
+- **ema_fg_dice** — exponential moving average of `mean_fg_dice` (smoothed).
+
+## Artifacts
+- **fold_<f>/** — validation metrics per fold.
+- **crossval_results/** — validation metrics averaged over all folds, plus per-structure
+  Dice / size figures (`validation_dice.png`, `validation_structure_size.png`).
+- **test_set/labelsTs_predicted/** — model predictions on the test set.
+- **test_set/labelsTs_predicted_pp/** — the same test predictions after nnU-Net's selected
+  post-processing.
+"""
+
+
+def log_run_overview_description(description: str = RUN_OVERVIEW_DESCRIPTION):
+    """Set the MLflow run Description (Overview tab) via the ``mlflow.note.content`` tag.
+
+    The Description box renders markdown, so this documents — inside the run itself — what
+    the logged metrics and artifact folders mean.
+    """
+
+    mlflow.set_tag("mlflow.note.content", description)
+
+
 def log_nnunet_artifacts(path_to_walk: str):
     """
     Log selected nnU-Net v2 artifacts to MLflow.
@@ -190,6 +217,39 @@ def log_nnunet_artifacts(path_to_walk: str):
             else:
                 logger.info(f"Logging nnUNet artifact to {artifact_path}: {file_name}")
                 mlflow.log_artifact(full_file_path, artifact_path=artifact_path)
+
+
+def log_validation_plots(crossval_dir: str):
+    """Log to mlflow some figures displaying metrics for the cross-validation data.
+    cross-validation data -> average over all K folds of each validation set.
+
+    Reads ``<crossval_dir>/postprocessed/summary.json`` (metrics after nnU-Net's selected
+    post-processing) and ``<crossval_dir>/dataset.json`` for structure names, and logs figs
+    under the ``crossval_results`` artifact folder.
+    """
+
+    try:
+        summary_path = os.path.join(crossval_dir, "postprocessed", "summary.json")
+        if not os.path.isfile(summary_path):
+            logger.warning(f"skipping validation plots; {summary_path} not found.")
+            return
+
+        dataset_json_path = os.path.join(crossval_dir, "dataset.json")
+        if not os.path.isfile(dataset_json_path):
+            dataset_json_path = None  # fall back to Label NN axis labels
+
+        from src.nnunet import plots # only if valid
+
+        figure_paths = plots.plot_validation_summary(
+            summary_path,
+            output_dir=crossval_dir,
+            dataset_json_path=dataset_json_path,
+        )
+        for figure_path in figure_paths:
+            mlflow.log_artifact(figure_path, artifact_path="crossval_results")
+    
+    except Exception:
+        logger.exception("Failed to generate/log validation plots.")
 
 
 def _log_failure_artifacts(artifact_dir, subprocess_log_path=None):
@@ -247,9 +307,10 @@ def _resolve_artifact_path(root: str):
     if any("crossval_results" in part for part in root_parts):
         return "crossval_results"
 
-    # Test-set predictions (labelsTs_predicted / labelsTs_predicted_pp) to mlflow subfolder
+    # Test-set predictions (labelsTs_predicted / labelsTs_predicted_pp) grouped under a
+    # single test_set/ folder in MLflow (on-disk nnU-Net names are left unchanged).
     labels_ts_dir = next((part for part in root_parts if part.startswith("labelsTs")), None)
     if labels_ts_dir is not None:
-        return labels_ts_dir
+        return os.path.join("test_set", labels_ts_dir)
 
     return None

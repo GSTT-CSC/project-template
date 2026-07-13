@@ -85,6 +85,9 @@ def setup_data(config, num_workers):
 def train(config):
     """Full XNAT data loading -> nnU-Net v2 training -> MLflow logging workflow."""
 
+    # add description of logged metrics in mlflow
+    nnunet_runtime.log_run_overview_description()
+
     num_workers, device = setup_environment(config)
     dm = setup_data(config, num_workers)
 
@@ -124,6 +127,10 @@ def train(config):
         cmd = commands.find_best_configuration_command(spec)
         logger.info(f"nnUNetv2_find_best_configuration: {cmd}")
         nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
+
+        # Output final validation metrics as figures
+        crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
+        nnunet_runtime.log_validation_plots(crossval_dir)
     else:
         logger.info("Skipping nnUNetv2_find_best_configuration ...")
 

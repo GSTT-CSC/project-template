@@ -171,6 +171,21 @@ def fold_artifact_dir(results_dir, spec, fold, configuration):
     )
 
 
+def crossval_results_dir(results_dir, spec):
+    """Grab dir that find_best_configuration writes the cross-validation results to.
+
+    Current understanding looks like ``crossval_results_folds_0_1_2_3_4``.
+    """
+
+    folds_str = "_".join(str(fold) for fold in spec.folds)
+    return os.path.join(
+        results_dir,
+        spec.dataset_name,
+        f"{spec.trainer_name}__{spec.plans_identifier}__{spec.configuration}",
+        f"crossval_results_folds_{folds_str}",
+    )
+
+
 def plan_and_preprocess_command(spec):
     """ Run CLI command as defined -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/experiment_planning/plan_and_preprocess_entrypoints.py"""
     
