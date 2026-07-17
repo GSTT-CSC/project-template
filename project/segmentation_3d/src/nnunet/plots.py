@@ -143,11 +143,14 @@ def _draw_dot_bar_figure(rows, output_path, xlabel, title, value_label, subtitle
     return output_path
 
 
-def plot_validation_summary(summary_json_path, output_dir, dataset_json_path=None):
+def plot_metric_figures(summary_json_path, output_dir, dataset_json_path=None, title=""):
     """Generate metrics (Dice, num pixels) figures from nnunet summary json file (summary_json_path).
 
-    Expects the post-processed cross-validation summary.json; reads label names from
-    dataset_json_path.
+    Used for cross-validation and test summaries: ``title`` (e.g. "test set") labels
+    the figures. Reads label names from dataset_json_path.
+    
+    Figures are written as dice.png / structure_size.png, with the containing folder identifying
+    which split they belong to.
 
     Returns list of written figure paths for mlflow logging.
     """
@@ -162,22 +165,22 @@ def plot_validation_summary(summary_json_path, output_dir, dataset_json_path=Non
     # shared structure alphabetical order (both figs)
     order = sorted(dice_per_structure, key=lambda k: names[k].lower())
 
-    subtitle = f"{len(summary['metric_per_case'])} validation cases"
+    subtitle = f"{len(summary['metric_per_case'])} cases"
 
     dice_rows = [("Foreground mean", get_per_case_summary(summary, "Dice"), True)]
     dice_rows += [(names[k], dice_per_structure[k], False) for k in order]
     dice_path = _draw_dot_bar_figure(
-        dice_rows, os.path.join(output_dir, "cross_validation_dice.png"),
-        xlabel="Dice", title="Validation Dice per structure", subtitle=subtitle,
+        dice_rows, os.path.join(output_dir, "dice.png"),
+        xlabel="Dice", title=f"{title.capitalize()} Dice per structure", subtitle=subtitle,
         value_label=float2dec, logx=False, xlim=(0.0, 1.0),
     )
 
     size_rows = [("All structures (mean)", get_per_case_summary(summary, "n_ref"), True)]
     size_rows += [(names[k], size_per_structure[k], False) for k in order]
     size_path = _draw_dot_bar_figure(
-        size_rows, os.path.join(output_dir, "cross_validation_structure_size.png"),
+        size_rows, os.path.join(output_dir, "structure_size.png"),
         xlabel="Number of ground truth pixels",
-        title="Validation structure size per structure", subtitle=subtitle,
+        title=f"{title.capitalize()} structure size per structure", subtitle=subtitle,
         value_label=float2simplified_dec, logx=True,
     )
 

@@ -171,10 +171,12 @@ RUN_OVERVIEW_DESCRIPTION = """\
 ## Artifacts
 - **fold_<f>/** — validation metrics per fold.
 - **crossval_results/** — validation metrics averaged over all folds, plus per-structure
-  Dice / size figures (`cross_validation_dice.png`, `cross_validation_structure_size.png`).
+  Dice / size figures (`dice.png`, `structure_size.png`).
+- **test_set/** — test-set Dice / size figures (`dice.png`, `structure_size.png`) scored
+  against ground truth.
 - **test_set/labelsTs_predicted/** — model predictions on the test set.
-- **test_set/labelsTs_predicted_pp/** — the same test predictions after nnU-Net's selected
-  post-processing.
+- **test_set/labelsTs_predicted_pp/** — post-processed test predictions + `summary.json`
+  (metrics vs ground truth).
 - **logs/run.log** — terminal log for the run
 """
 
@@ -220,37 +222,34 @@ def log_nnunet_artifacts(path_to_walk: str):
                 mlflow.log_artifact(full_file_path, artifact_path=artifact_path)
 
 
-def log_validation_plots(crossval_dir: str):
-    """Log to mlflow some figures displaying metrics for the cross-validation data.
-    cross-validation data -> average over all K folds of each validation set.
+def log_metric_plots(summary_path, dataset_json_path, artifact_path):
+    """Generate metric figures (Dice, structure size) from a summary.json and log them to mlflow.
 
-    Reads ``<crossval_dir>/postprocessed/summary.json`` (metrics after nnU-Net's selected
-    post-processing) and ``<crossval_dir>/dataset.json`` for structure names, and logs figs
-    under the ``crossval_results`` artifact folder.
+    Shared by the cross-validation and test summaries. ``artifact_path`` sets the mlflow folder
+    and doubles as the figure title label. Figures are written next to the summary.
     """
 
     try:
-        summary_path = os.path.join(crossval_dir, "postprocessed", "summary.json")
         if not os.path.isfile(summary_path):
-            logger.warning(f"skipping validation plots; {summary_path} not found.")
+            logger.warning(f"skipping {artifact_path} plots; {summary_path} not found.")
             return
 
-        dataset_json_path = os.path.join(crossval_dir, "dataset.json")
-        if not os.path.isfile(dataset_json_path):
+        if not (dataset_json_path and os.path.isfile(dataset_json_path)):
             dataset_json_path = None  # fall back to Label NN axis labels
 
         from src.nnunet import plots # only if valid
 
-        figure_paths = plots.plot_validation_summary(
+        figure_paths = plots.plot_metric_figures(
             summary_path,
-            output_dir=crossval_dir,
+            output_dir=os.path.dirname(summary_path),
             dataset_json_path=dataset_json_path,
+            title=artifact_path.replace("_", " "),
         )
         for figure_path in figure_paths:
-            mlflow.log_artifact(figure_path, artifact_path="crossval_results")
-    
+            mlflow.log_artifact(figure_path, artifact_path=artifact_path)
+
     except Exception:
-        logger.exception("Failed to generate/log validation plots.")
+        logger.exception(f"Failed to generate/log {artifact_path} plots.")
 
 
 def _log_failure_artifacts(artifact_dir, subprocess_log_path=None):

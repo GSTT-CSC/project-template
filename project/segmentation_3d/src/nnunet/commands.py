@@ -284,3 +284,21 @@ def apply_postprocessing_command(spec, input_dir, output_dir, postprocessing_fil
         "-o", output_dir,
         "-pp_pkl_file", postprocessing_file,
     ]
+
+
+def evaluate_folder_command(gt_dir, pred_dir, dataset_json, plans_json):
+    """
+    Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/evaluation/evaluate_predictions.py
+
+    Scores predicted segmentations against ground truth, writing summary.json into pred_dir.
+    --chill: don't crash if a ground-truth case has no matching prediction.
+    """
+
+    return [
+        "nnUNetv2_evaluate_folder",
+        gt_dir,
+        pred_dir,
+        "-djfile", dataset_json,
+        "-pfile", plans_json,
+        "--chill",
+    ]

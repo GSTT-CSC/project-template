@@ -128,7 +128,8 @@ class DataModule_nnUNetV2():
             for folder in [
                 "imagesTr",
                 "imagesTs",
-                "labelsTr"
+                "labelsTr",
+                "labelsTs",
             ]:
                 os.makedirs(os.path.join(self.nnunet_raw_dir, self.dataset_dir_name, folder), exist_ok=True)
 
@@ -241,7 +242,9 @@ class DataModule_nnUNetV2():
         """
         Download a subject's XNAT session and write its nnU-Net files.
         Train subject -> combined multi-label mask (labelsTr) + image (imagesTr);
-        Test subject -> image only (imagesTs).
+        Test subject  -> combined multi-label mask (labelsTs) + image (imagesTs).
+
+        Test labels are ground truth used only for evaluation - nnU-Net never trains on them.
         """
 
         with tempfile.TemporaryDirectory() as session_tmp_holding_dir:
@@ -260,18 +263,20 @@ class DataModule_nnUNetV2():
                 return match
 
             if row["IS_TRAIN_SUBJECT"]:
-                # Label: combine the subject's contour NIfTIs into one multi-label mask.
-                # Filename order sets the label order (contour 1 -> 1, contour 2 -> 2, ...).
-                contour_uris = [find(fl) for fl in row[contour_column_names].tolist()]
-                combined_uri = os.path.join(session_tmp_holding_dir, "tmp_nifti.nii.gz")
-                nifti_contour_combiner(input_nifti_uris=contour_uris, output_nifti_uri=combined_uri)
-                shutil.copy(combined_uri, row["TRAIN_LABEL_DEST_URI"])
-                shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), row["TRAIN_IMAGE_DEST_URI"])
-                logger.info(f"Wrote training label + image for subject index {row['SUBJECT_INDEX']}")
-
+                image_dest, label_dest, kind = row["TRAIN_IMAGE_DEST_URI"], row["TRAIN_LABEL_DEST_URI"], "training"
             elif row["IS_TEST_SUBJECT"]:
-                shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), row["TEST_IMAGE_DEST_URI"])
-                logger.info(f"Wrote test image for subject index {row['SUBJECT_INDEX']}")
+                image_dest, label_dest, kind = row["TEST_IMAGE_DEST_URI"], row["TEST_LABEL_DEST_URI"], "test"
+            else:
+                return
+
+            # Label: combine the subject's contour NIfTIs into one multi-label mask.
+            # Filename order sets the label order (contour 1 -> 1, contour 2 -> 2, ...).
+            contour_uris = [find(fl) for fl in row[contour_column_names].tolist()]
+            combined_uri = os.path.join(session_tmp_holding_dir, "tmp_nifti.nii.gz")
+            nifti_contour_combiner(input_nifti_uris=contour_uris, output_nifti_uri=combined_uri)
+            shutil.copy(combined_uri, label_dest)
+            shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), image_dest)
+            logger.info(f"Wrote {kind} label + image for subject index {row['SUBJECT_INDEX']}")
 
     def _dataset_dest_uri(self, idx, subfolder, suffix):
         """Build a Struct_NNN destination path inside the dataset's nnU-Net subfolder."""
@@ -385,6 +390,9 @@ class DataModule_nnUNetV2():
         )
         df["TEST_IMAGE_DEST_URI"] = df.apply(
             lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "imagesTs", "_0000.nii.gz") if row["IS_TEST_SUBJECT"] else None, axis=1
+        )
+        df["TEST_LABEL_DEST_URI"] = df.apply(
+            lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "labelsTs", ".nii.gz") if row["IS_TEST_SUBJECT"] else None, axis=1
         )
 
         self.df = df

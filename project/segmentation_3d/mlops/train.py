@@ -131,7 +131,11 @@ def train(config):
 
         # Output final validation metrics as figures
         crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
-        nnunet_runtime.log_validation_plots(crossval_dir)
+        nnunet_runtime.log_metric_plots(
+            summary_path=os.path.join(crossval_dir, "postprocessed", "summary.json"),
+            dataset_json_path=os.path.join(crossval_dir, "dataset.json"),
+            artifact_path="crossval_results",
+        )
     else:
         logger.info("Skipping nnUNetv2_find_best_configuration ...")
 
@@ -156,6 +160,28 @@ def train(config):
         nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
     else:
         logger.info("Skipping nnUNetv2_apply_postprocessing ...")
+
+    # nnUNetv2 evaluate (test set): score the final test predictions against the test ground
+    # truth (labelsTs) and output Test figures.
+    try:
+        test_gt_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "labelsTs")
+        test_pred_dir = test_labels_pp_dir if spec.use_npz else test_labels_dir
+        
+        if os.path.isdir(test_gt_dir) and os.listdir(test_gt_dir):
+            dataset_json = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "dataset.json")
+            plans_json = nnunet_runtime.locate_file(artifact_dir, "plans.json")
+            cmd = commands.evaluate_folder_command(test_gt_dir, test_pred_dir, dataset_json, plans_json)
+            logger.info(f"nnUNetv2_evaluate_folder: {cmd}")
+            nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
+            nnunet_runtime.log_metric_plots(
+                summary_path=os.path.join(test_pred_dir, "summary.json"),
+                dataset_json_path=dataset_json,
+                artifact_path="test_set",
+            )
+        else:
+            logger.warning("No test ground truth (labelsTs) found; skipping test-set evaluation.")
+    except Exception:
+        logger.exception("Test-set evaluation/plots failed; continuing.")
 
     # Log non-secret parts of config in MLFlow
     useful_keys = ['system', 'project', 'data', 'nnunet']
