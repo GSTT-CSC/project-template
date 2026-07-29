@@ -131,7 +131,7 @@ def build_nnunet_model_spec(config, dm):
     """Build NNUNetModelSpec dataclass from cleaned up config + the prepared DataModule."""
     
     return NNUNetModelSpec(
-        dataset_id="".join(c for c in dm.dataset_dir_name if c.isdigit()),
+        dataset_id=dm.dataset_id,
         dataset_name=dm.dataset_dir_name.strip(),
         trainer_name=config["nnunet"]["NNUNET_TRAINER"].strip(),
         plans_identifier=config["nnunet"]["NNUNET_PLANS_IDENTIFIER"].strip(),

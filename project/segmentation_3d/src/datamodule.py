@@ -89,38 +89,28 @@ class DataModule_nnUNetV2():
 
         logger.debug(f'Created nnUNet directory structure: {os.listdir(self.tmp_working_dir)}')
 
-    def make_nnunet_dataset_dirs(self, modelnames: List = None) -> None:
+    def make_nnunet_dataset_dirs(self, modelname: str) -> None:
         """
-        Make nnU-Net DatasetXXX sub-directory structure
+        Make nnU-Net Dataset001 sub-directory structure
             e.g.
                 Dataset001_Lungs/
                     imagesTr/
                     imagesTs/
                     labelsTr/
+                    labelsTs/
 
-        Inputs:
-            modelnames: List of modelnames used to populate DatasetXXX folder names
+        One model per run, so the dataset is always Dataset001_<modelname>.
+        001 is required due to nnU-Net's hard-coded dataset naming convention.
         """
 
-        if not os.path.isdir(self.tmp_working_dir):
-            raise Exception("Working directory not found or does not exist.")
         if not os.path.isdir(self.nnunet_raw_dir):
             raise Exception(f"{self.nnunet_raw_dir} not found or does not exist.")
-        if isinstance(modelnames, str):
-            modelnames = [modelnames]
 
-        ctr = 1
-        for modelname in modelnames:  # note: loop currently redundant; workflow deals with one DatasetXXX folder
-            self.dataset_dir_name = "Dataset" + "{0:03}".format(ctr) + "_" + modelname
-            for folder in [
-                "imagesTr",
-                "imagesTs",
-                "labelsTr",
-                "labelsTs",
-            ]:
-                os.makedirs(os.path.join(self.nnunet_raw_dir, self.dataset_dir_name, folder), exist_ok=True)
+        self.dataset_id = "001"
+        self.dataset_dir_name = f"Dataset{self.dataset_id}_{modelname}"
 
-            ctr += 1
+        for folder in ("imagesTr", "imagesTs", "labelsTr", "labelsTs"):
+            os.makedirs(os.path.join(self.nnunet_raw_dir, self.dataset_dir_name, folder), exist_ok=True)
 
     def get_xnat_data(self) -> None:
         """
@@ -290,28 +280,28 @@ class DataModule_nnUNetV2():
         )
 
 
-        # 4. Parse regions.json file once (improvable as uses a single filename/modelname)
+        # 4. Parse regions.json file once
         if not (os.path.isfile(self.regions_json_path) and self.regions_json_path.endswith(".json")):
             raise TypeError(f"Regions JSON file not found or not specified: {self.regions_json_path}")
-        
+
         with open(self.regions_json_path) as jsonfile:
             regions_cfg = json.load(jsonfile)
 
-        # Only one image filename and one training model are supported for now.
         if len(regions_cfg["image_filenames"]) != 1:
             raise ValueError(
-                f"regions.json must list exactly one image filename; got "
-                f"{regions_cfg['image_filenames']}"
+                f"regions.json must list exactly one image filename, more than one is not "
+                f"supported; got {regions_cfg['image_filenames']}"
             )
         if len(regions_cfg["training_models"]) != 1:
             raise ValueError(
-                f"regions.json must list exactly one training model; got "
+                f"regions.json must list exactly one training model, more than one is not "
+                f"supported - run each model separately with its own regions.json; got "
                 f"{[model['modelname'] for model in regions_cfg['training_models']]}"
             )
 
-        image_data_filename = regions_cfg["image_filenames"][0]  # TODO permit >1 image_data filename
+        image_data_filename = regions_cfg["image_filenames"][0]
         regions_to_train = regions_cfg["training_models"]
-        modelname = regions_to_train[0]['modelname']             # TODO permit >1 modelname?
+        modelname = regions_to_train[0]['modelname']
         contour_filenames = regions_to_train[0]['contour_filenames']
         image_channel_name = regions_cfg.get("image_channel_name", "CT")
 
@@ -350,16 +340,17 @@ class DataModule_nnUNetV2():
         # note, for nnU-Net v2:
         # len(imagesTr) == len(labelsTr) == train_size
         # len(imagesTs) == test_size        
-        df_train, df_test = train_test_split(
-            df, train_size=self.train_fraction, test_size=self.test_fraction,
-            random_state=self.random_seed
-        )
+        df_train, df_test = train_test_split(df,
+                                             train_size=self.train_fraction,
+                                             test_size=self.test_fraction,
+                                             random_state=self.random_seed)
 
         logger.info(f'{len(df_train)} cases in training set, out of {len(df)} total cases.')
         logger.info(f'{len(df_test)} cases in test set, out of {len(df)} total cases.')
 
         logger.info(f'Training Fraction = {self.train_fraction}')
         logger.info(f'Test Fraction = {self.test_fraction}')
+
         if self.train_fraction + self.test_fraction < 1:
             logger.warning('Train/Test split ratio < 1. Proceeding with subset of all data')        
 
@@ -385,7 +376,7 @@ class DataModule_nnUNetV2():
         self.df = df
 
 
-        # 11. Download each subject's XNAT session ONCE (reusing a single connection) and write
+        # 11. Download each subject's XNAT session once (reusing a single connection) and write
         #     its nnU-Net files from that single download (train: label + image; test: image).
         contour_column_names = [f"CONTOUR_{i+1}_FILE_NAME" for i in range(len(contour_filenames))]
 
