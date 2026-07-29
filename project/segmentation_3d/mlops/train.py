@@ -48,7 +48,11 @@ def log_run_to_mlflow(log_path):
 
 
 def setup_environment(config):
-    """Set the GPU environment; return (num_workers, device)."""
+    """Sets up the following:
+    1) GPU environment -> returns device
+    2) number of workers for XNAT data download -> returns xnat_num_workers
+    3) number of workers for nnU-Net data loading + augment -> sets nnUNet_n_proc_DA env var
+    """
 
     device = config["nnunet"]["NNUNET_DEVICE"].strip().lower()
 
@@ -62,10 +66,9 @@ def setup_environment(config):
     else:
         os.environ["CUDA_VISIBLE_DEVICES"] = ""
     
-    logger.info(f"CUDA_VISIBLE_DEVICES = {os.environ['CUDA_VISIBLE_DEVICES']!r}")
+    logger.info(f"Env variable set: 'CUDA_VISIBLE_DEVICES' = '{os.environ['CUDA_VISIBLE_DEVICES']}'.")
 
-    # Bridge the optional [nnunet] NNUNET_N_PROC_DA config value to nnU-Net's env var
-    # (nnU-Net has no CLI flag for it). Blank -> leave unset -> nnU-Net default (~12).
+    # nnunet data load and augment number of workers. If blank, defaults to nnU-Net default (12)
     n_proc_da = config["nnunet"].get("NNUNET_N_PROC_DA", "").strip()
     if n_proc_da:
         if not n_proc_da.isdigit() or int(n_proc_da) < 1:
@@ -74,15 +77,16 @@ def setup_environment(config):
                 f"got {n_proc_da!r}."
             )
         os.environ["nnUNet_n_proc_DA"] = n_proc_da
-        logger.info(f"nnUNet_n_proc_DA = {n_proc_da}")
+        logger.info(f"Env variable set: 'nnUNet_n_proc_DA' = '{n_proc_da}'.")
 
-    max_workers = int(config["system"]["MAX_WORKERS"])
-    num_workers = min(max_workers, multiprocessing.cpu_count())
+    # xnat download number of workers
+    max_workers = int(config["system"]["XNAT_DOWNLOAD_NUM_WORKERS"])
+    xnat_num_workers = min(max_workers, multiprocessing.cpu_count())
 
-    return num_workers, device
+    return xnat_num_workers, device
 
 
-def setup_data(config, num_workers):
+def setup_data(config, xnat_download_num_workers):
     """Build the nnU-Net dataset from XNAT and return the prepared DataModule."""
 
     xnat_configuration = {
@@ -105,7 +109,7 @@ def setup_data(config, num_workers):
         xnat_configuration=xnat_configuration,
         train_fraction=float(config["data"]["TRAIN_FRACTION"]),
         test_fraction=float(config["data"]["TEST_FRACTION"]),
-        num_workers=num_workers,
+        num_workers=xnat_download_num_workers,
         random_seed=int(config["system"]["RANDOM_SEED"]),
         tmp_dirs_configuration=tmp_dirs_configuration,
         regions_json_path=config["data"]["REGIONS_JSON_PATH"],
@@ -122,8 +126,8 @@ def train(config):
     # add description of logged metrics in mlflow
     nnunet_runtime.log_run_overview_description()
 
-    num_workers, device = setup_environment(config)
-    dm = setup_data(config, num_workers)
+    xnat_download_num_workers, device = setup_environment(config)
+    dm = setup_data(config, xnat_download_num_workers)
 
     # define/bundle parameters for nnunetv2 to run via CLI
     spec = commands.build_nnunet_model_spec(config, dm)
@@ -135,9 +139,9 @@ def train(config):
     os.environ["nnUNet_raw"] = dm.nnunet_raw_dir
     os.environ["nnUNet_preprocessed"] = dm.nnunet_preprocessed_dir
     os.environ["nnUNet_results"] = dm.nnunet_results_dir
-    logger.info(f"nnUNet_raw = {dm.nnunet_raw_dir}")
-    logger.info(f"nnUNet_preprocessed = {dm.nnunet_preprocessed_dir}")
-    logger.info(f"nnUNet_results = {dm.nnunet_results_dir}")
+    logger.info(f"Env variable set: 'nnUNet_raw' = '{dm.nnunet_raw_dir}'.")
+    logger.info(f"Env variable set: 'nnUNet_preprocessed' = '{dm.nnunet_preprocessed_dir}'.")
+    logger.info(f"Env variable set: 'nnUNet_results' = '{dm.nnunet_results_dir}'.")
 
     # nnU-Net v2 preprocessing
     cmd = commands.plan_and_preprocess_command(spec)

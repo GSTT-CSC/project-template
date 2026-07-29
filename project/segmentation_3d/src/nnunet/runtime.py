@@ -156,7 +156,7 @@ def run_command(
         )
 
 
-RUN_OVERVIEW_DESCRIPTION = """\
+default_run_overview_description = """\
 # nnU-Net v2 logging info
 
 ## Per-epoch metrics (logged as `fold_<f>_<config>_<name>`)
@@ -172,16 +172,14 @@ RUN_OVERVIEW_DESCRIPTION = """\
 - **test_set/labelsTs_predicted/** — model predictions on the test set.
 - **test_set/labelsTs_predicted_pp/** — post-processed test predictions + `summary.json`
   (metrics vs ground truth).
-- **logs/run.log** — full terminal log for the run (our pipeline steps + all nnU-Net
-  output), logged whether the run succeeded or failed.
+- **logs/run.log** — full terminal log for the run (logger.* + nnU-Net subprocess output).
 """
 
 
-def log_run_overview_description(description: str = RUN_OVERVIEW_DESCRIPTION):
+def log_run_overview_description(description: str = default_run_overview_description):
     """Set the MLflow run Description (Overview tab) via the ``mlflow.note.content`` tag.
 
-    The Description box renders markdown, so this documents — inside the run itself — what
-    the logged metrics and artifact folders mean.
+    This is so users are not left wondering what the various metrics/artifacts mean in MLFlow.
     """
 
     mlflow.set_tag("mlflow.note.content", description)
