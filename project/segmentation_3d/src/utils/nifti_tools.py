@@ -38,7 +38,7 @@ def nifti_contour_combiner(
         output_nifti_uri: str = None
         ):
     """
-    Combine contours from multiple NIfTI files into a single NIfTI file.
+    Combine contours from one or more NIfTI files into a single NIfTI file.
 
     Contour mask voxel values assigned corresponding integer values, e.g.:
     Background voxel values = 0
@@ -46,6 +46,9 @@ def nifti_contour_combiner(
     Contour 2 voxel values = 2
     Contour 3 voxel values = 3
     etc.
+
+    A single contour is valid and gives a binary {0, 1} mask. Callers copy
+    output_nifti_uri afterwards, so this always writes it or raises.
 
     Inputs:
         input_nifti_uris
@@ -55,11 +58,7 @@ def nifti_contour_combiner(
         output_nifti_uri
     """
     if len(input_nifti_uris) == 0:
-        logger.warning("Zero NIfTI files found. Skipping nifti_contour_combiner.")
-        return
-    if len(input_nifti_uris) == 1:
-        logger.warning(f"Only one NIfTI file found: {input_nifti_uris}. Skipping nifti_contour_combiner.")
-        return
+        raise ValueError("No NIfTI files to combine.")
 
     logger.info(f"Combining NIfTI files: {[os.path.basename(uri) for uri in input_nifti_uris]}")
 
@@ -68,8 +67,10 @@ def nifti_contour_combiner(
     # check contour file dimensions match
     nifti_dims = [nifti_obj.header["dim"] for nifti_obj in nifti_objects]
     if not all(np.array_equal(dim, nifti_dims[0]) for dim in nifti_dims):
-        logger.warning("Inconsistent NIfTI dimensions. Skipping nifti_contour_combiner.")
-        return
+        raise ValueError(
+            f"Inconsistent NIfTI dimensions across contours: "
+            f"{dict(zip([os.path.basename(uri) for uri in input_nifti_uris], [tuple(d[1:4]) for d in nifti_dims]))}"
+        )
 
     # Build the multi-label mask incrementally as uint8: read each contour one at a time and combine
     combined_mask = None

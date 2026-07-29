@@ -303,6 +303,9 @@ class DataModule_nnUNetV2():
         regions_to_train = regions_cfg["training_models"]
         modelname = regions_to_train[0]['modelname']
         contour_filenames = regions_to_train[0]['contour_filenames']
+
+        if not contour_filenames:
+            raise ValueError(f"regions.json lists no contour_filenames for model '{modelname}'.")
         image_channel_name = regions_cfg.get("image_channel_name", "CT")
 
 
@@ -333,7 +336,7 @@ class DataModule_nnUNetV2():
 
 
         # 8. Create folder paths for nnU-Net
-        self.make_nnunet_dataset_dirs(modelnames=modelname)
+        self.make_nnunet_dataset_dirs(modelname=modelname)
 
 
         # 9. Data split
@@ -388,11 +391,16 @@ class DataModule_nnUNetV2():
 
         # 12. Construct dataset.json
         labels = ["background"] + [c.replace(".nii.gz", "").replace("Struct_", "").lower() for c in contour_filenames]
-        label_values = list(range(len(labels)))
+        if len(set(labels)) != len(labels):
+            raise ValueError(
+                f"Contour filenames in regions.json map to duplicate label names: {labels}. "
+                f"dataset.json would not describe every mask value - rename the contour files "
+                f"so each gives a unique label."
+            )
 
         self.generate_dataset_json(
             num_training_cases=int(df["IS_TRAIN_SUBJECT"].sum()),
-            labels_dict=dict(zip(labels, label_values)),
+            labels_dict={name: value for value, name in enumerate(labels)},
             image_channel_name=image_channel_name,
         )
 
@@ -434,9 +442,7 @@ class DataModule_nnUNetV2():
         
         generate_dataset_json(
             os.path.join(self.nnunet_raw_dir, self.dataset_dir_name),
-            channel_names={
-                0: image_channel_name
-            },
+            channel_names={0: image_channel_name},
             labels=labels_dict,
             file_ending=".nii.gz",
             num_training_cases=num_training_cases
