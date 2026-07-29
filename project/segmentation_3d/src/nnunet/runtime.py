@@ -6,7 +6,6 @@ This module wraps those subprocess calls and streamlines mlflow logging.
 import logging
 import os
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
@@ -70,13 +69,10 @@ def locate_file(path_to_walk: str, file_to_locate: str) -> str:
     return located_file_path
 
 
-def _tee_stream(pipe, log_file):
-    """Forward each line of a subprocess pipe to both the console and ``log_file``."""
+def forward_stream(pipe):
+    """Forward each line of a subprocess to logger.*."""
     for line in pipe:
-        sys.stdout.write(line)
-        sys.stdout.flush()
-        log_file.write(line)
-        log_file.flush()
+        logger.info(line.rstrip())
 
 
 def run_command(
@@ -88,7 +84,7 @@ def run_command(
     log_metrics: bool = False,
 ):
     """
-    Run nnU-Net CLI command ``cmd``, send result to console and subprocess.log (which ends in mlflow).
+    Run nnU-Net CLI command ``cmd``, forwarding its output to our logger.
 
     When ``log_metrics`` is True, ``checkpoint_latest.pth`` in
     ``artifact_dir`` is polled every ``poll_seconds`` and any newly available epoch
@@ -96,60 +92,59 @@ def run_command(
     """
 
     os.makedirs(artifact_dir, exist_ok=True)
-    subprocess_log_path = os.path.join(artifact_dir, "subprocess.log")
     ckpt_latest = Path(artifact_dir) / "checkpoint_latest.pth"
     ckpt_final = Path(artifact_dir) / "checkpoint_final.pth"
     last_mtime = None
     last_epoch = -1
     missing_checkpoint_warned = False
 
-    with open(subprocess_log_path, "w", encoding="utf-8") as subprocess_log_file:
+    # Start the nnunet process.
+    process = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE, # output goes to memory not terminal (process.stdout)
+        stderr=subprocess.STDOUT, # None; merged in stdout so both can be sent to logger
+        text=True,
+        bufsize=1,
+        env={**os.environ, "PYTHONUNBUFFERED": "1"}, # send line-by-line rather than chunks
+    )
 
-        process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE, # output goes to memory for now
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
+    # Logging workflow using a thread:
+    # subprocess.PIPE -> process.stdout -> forward_stream -> logger -> console + run.log
+    # start thread below reads process.stdout as it comes and executes forward_stream (sends each line to logger).
+    forward_thread = threading.Thread(target= forward_stream, args=(process.stdout,), daemon=True)
+    forward_thread.start()
 
-        # subprocess.PIPE -> process.stdout -> _tee_stream -> console + subprocess.log
-        tee_thread = threading.Thread(target=_tee_stream, args=(process.stdout, subprocess_log_file), daemon=True)
-        tee_thread.start()
-
-        if log_metrics:
-            while process.poll() is None:
-                if ckpt_latest.exists():
-                    missing_checkpoint_warned = False
-                    mtime = ckpt_latest.stat().st_mtime
-                    if last_mtime is None or mtime > last_mtime:
-                        last_mtime = mtime
-                        last_epoch = _log_new_metrics(
-                            checkpoint_path=str(ckpt_latest),
-                            fold=fold,
-                            last_epoch=last_epoch,
-                            configuration=configuration,
-                        )
-                        logger.info(
-                            f"Logged new metrics to MLFlow from checkpoint:"
-                            f" {ckpt_latest} at epoch: {last_epoch}."
-                        )
-                elif not missing_checkpoint_warned:
-                    logger.warning(
-                        f"Checkpoint not found at expected location: {ckpt_latest}."
+    if log_metrics:
+        while process.poll() is None:
+            if ckpt_latest.exists():
+                missing_checkpoint_warned = False
+                mtime = ckpt_latest.stat().st_mtime
+                if last_mtime is None or mtime > last_mtime:
+                    last_mtime = mtime
+                    last_epoch = _log_new_metrics(
+                        checkpoint_path=str(ckpt_latest),
+                        fold=fold,
+                        last_epoch=last_epoch,
+                        configuration=configuration,
                     )
-                    missing_checkpoint_warned = True
-                time.sleep(poll_seconds)
+                    logger.info(
+                        f"Logged new metrics to MLFlow from checkpoint:"
+                        f" {ckpt_latest} at epoch: {last_epoch}."
+                    )
+            elif not missing_checkpoint_warned:
+                logger.warning(
+                    f"Checkpoint not found at expected location: {ckpt_latest}."
+                )
+                missing_checkpoint_warned = True
+            time.sleep(poll_seconds)
 
-        return_code = process.wait()
-        tee_thread.join()
+    return_code = process.wait() # wait for nnU-Net to exit
+    forward_thread.join() # wait for thread to finish emptying process.stdout and move on
 
     if return_code != 0:
+        # No special failure artifacts needed: the whole run (including this command's output)
+        # is in run.log, which train.py sends to MLflow whether or not the run succeeded.
         logger.error(f"Command failed: {cmd} (exit {return_code})")
-        _log_failure_artifacts(
-            artifact_dir=artifact_dir,
-            subprocess_log_path=subprocess_log_path,
-        )
         raise subprocess.CalledProcessError(return_code, cmd)
 
     if log_metrics and ckpt_latest.exists():
@@ -177,7 +172,8 @@ RUN_OVERVIEW_DESCRIPTION = """\
 - **test_set/labelsTs_predicted/** — model predictions on the test set.
 - **test_set/labelsTs_predicted_pp/** — post-processed test predictions + `summary.json`
   (metrics vs ground truth).
-- **logs/run.log** — terminal log for the run
+- **logs/run.log** — full terminal log for the run (our pipeline steps + all nnU-Net
+  output), logged whether the run succeeded or failed.
 """
 
 
@@ -250,17 +246,6 @@ def log_metric_plots(summary_path, dataset_json_path, artifact_path):
 
     except Exception:
         logger.exception(f"Failed to generate/log {artifact_path} plots.")
-
-
-def _log_failure_artifacts(artifact_dir, subprocess_log_path=None):
-    try:
-        if subprocess_log_path and os.path.isfile(subprocess_log_path):
-            mlflow.log_artifact(subprocess_log_path, artifact_path="error_logs")
-        training_log_path = locate_file(artifact_dir, "training_log")
-        if training_log_path and os.path.isfile(training_log_path):
-            mlflow.log_artifact(training_log_path, artifact_path="error_logs")
-    except Exception:
-        logger.exception("Failed to log failure artifact to MLflow.")
 
 
 def _log_new_metrics(checkpoint_path, fold, last_epoch, configuration=None):

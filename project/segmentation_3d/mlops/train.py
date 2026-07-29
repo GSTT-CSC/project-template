@@ -14,6 +14,39 @@ import src.nnunet.runtime as nnunet_runtime
 logger = logging.getLogger(__name__)
 
 
+def setup_logging():
+    """Configure logging for the run and return log_path, the path to the log file.
+
+    log_path is the logging destination for the whole run:
+    1) everything that appears in the console (via logger.*) is sent to the log file.
+    2) so is nnU-Net subprocess output, which src.nnunet.runtime forwards to logger.*.
+
+    The log file is ultimately sent to MLFlow.
+    """
+
+    log_path = os.path.join(tempfile.mkdtemp(), "run.log")
+    logging.basicConfig( # match log format to csc-mlops
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.StreamHandler(), logging.FileHandler(log_path)],
+        force=True)
+
+    return log_path
+
+
+def log_run_to_mlflow(log_path):
+    """Send run.log to MLflow, so the run is inspectable whether it succeeded or failed.
+
+    Never raises: this is called from a finally block, where an error here would mask the
+    exception that actually ended the run.
+    """
+
+    try:
+        mlflow.log_artifact(log_path, artifact_path="logs")
+    except Exception:
+        logger.exception("Failed to log run log to MLflow.")
+
+
 def setup_environment(config):
     """Set the GPU environment; return (num_workers, device)."""
 
@@ -211,17 +244,10 @@ def train(config):
 
 
 def main():
+
+    log_path = setup_logging()
+
     # runs as train.py <config_file_path> via mlops run()
-
-    # Log to the console and to a file we can attach to the MLflow run (the cluster's stdout
-    # is not otherwise visible). Matches csc-mlops's log format.
-    log_path = os.path.join(tempfile.mkdtemp(), "run.log")
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.StreamHandler(), logging.FileHandler(log_path)],
-        force=True)
-
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
     args = parser.parse_args()
@@ -231,12 +257,8 @@ def main():
 
     try:
         train(config)
-    finally:
-        # Attach the full run log even if training failed, so errors are visible in MLflow.
-        try:
-            mlflow.log_artifact(log_path, artifact_path="logs")
-        except Exception:
-            logger.exception("Failed to log run log to MLflow.")
+    finally: # log the run to MLFlow whether success or fail
+        log_run_to_mlflow(log_path)
 
 
 if __name__ == '__main__':
