@@ -58,19 +58,16 @@ class DataModule_nnUNetV2():
 
     def make_tmp_dir(self) -> None:
         """
-        Make temporary working directory in OS tmp folder in the format:
-        <folder_prefix>_<datetime>_<uuid>
+        Make temporary working directory in the format <TMP_WORKING_DIR>_<datetime>_<uuid>.
         """
 
-        if not os.path.isdir(self.tmp_dirs_configuration["os_tmp_dir"]):
-            raise Exception("Operating system tmp directory not found.")
+        tmp_dir_root = self.tmp_dirs_configuration["tmp_working_dir"]
+        if not os.path.isdir(os.path.dirname(tmp_dir_root)):
+            raise Exception(f"Parent directory not found: {os.path.dirname(tmp_dir_root)}")
 
-        self.tmp_working_dir = os.path.join(
-            self.tmp_dirs_configuration["os_tmp_dir"],
-            self.tmp_dirs_configuration["tmp_working_dir"]
-            + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
-            + "_" + uuid.uuid4().hex[:8]
-            )
+        self.tmp_working_dir = (tmp_dir_root
+                                + "_" + datetime.now().strftime("%Y%m%d_%H%M%S")
+                                + "_" + uuid.uuid4().hex[:8])
 
         os.makedirs(self.tmp_working_dir, exist_ok=True)
         logger.debug(f'Created temporary working directory: {self.tmp_working_dir}')
@@ -139,61 +136,48 @@ class DataModule_nnUNetV2():
         data_builder.fetch_data()
         self.raw_data = data_builder.dataset
 
-    def validate_data(self, files_to_validate: List = None) -> None:
+    def validate_data(self, files_to_validate: List = None) -> dict:
         """
-        Validate XNAT object contains necessary files for training
+        Validate XNAT object contains necessary files for training; log subjects with missing files.
 
         Returns:
-            file_validation_dict: Nested Dict containing subject IDs and boolean depending if file exists in XNAT object,
-                e.g.:
+            file_validation_dict: nested Dict of subject IDs -> whether each file exists
                     file_validation_dict = {
-                        SUBJECT_1
-                            CONTOUR1.nii.gz: True
-                            CONTOUR2.nii.gz: True
-                            CONTOUR3.nii.gz: True
-                        SUBJECT_2
-                            CONTOUR1.nii.gz: True
-                            CONTOUR2.nii.gz: False
-                            CONTOUR3.nii.gz: False
+                        SUBJECT_1: {CONTOUR1.nii.gz: True,  CONTOUR2.nii.gz: True},
+                        SUBJECT_2: {CONTOUR1.nii.gz: True,  CONTOUR2.nii.gz: False},
                         etc.
                     }
         """
 
         if not files_to_validate:
-            raise Warning("List of regions to validate not found or missing.")
+            raise ValueError("List of regions to validate not found or missing.")
         if not self.raw_data:
             raise Exception("raw_data not found.")
-        else:
-            xnat_data_obj = self.raw_data
-        if type(files_to_validate) == str:
+        if isinstance(files_to_validate, str):
             files_to_validate = [files_to_validate]
 
-        # validate files for training exist in XNAT data object
-        logger.info("Validating specified files exist in XNAT object:")
-        for fl in files_to_validate:
-            logger.info(f"{fl}")
+        logger.info(
+            f"Data validation - checking {len(self.raw_data)} XNAT subjects for: {files_to_validate}"
+        )
 
-        # initialise empty file validation dictionary
         file_validation_dict = {}
-        for subject in xnat_data_obj:
-            file_validation_dict[subject['subject_id']] = {}
-            for fl in files_to_validate:
-                file_validation_dict[subject['subject_id']][fl] = None
-
-        # check each subject in XNAT object contains specified files, update validation dictionary accordingly
-        for subject in xnat_data_obj:
-            logger.info(f"Validating subject: {subject['subject_id']} ...")
+        subjects_with_missing_files = 0
+        for subject in self.raw_data:
             subject_files = subject['data'][0]['resource_files']
-            for fl in files_to_validate:
-                if fl in subject_files:
-                    logger.info(f"{fl} exists.")
-                    file_validation_dict[subject['subject_id']][fl] = True
-                elif fl not in subject_files:
-                    logger.info(f"{fl} not found.")
-                    file_validation_dict[subject['subject_id']][fl] = False
+            file_validation_dict[subject['subject_id']] = {
+                fl: fl in subject_files for fl in files_to_validate
+            }
 
-        # add some metadata
-        file_validation_dict['num_files_per_subject'] = len(files_to_validate)
+            missing = [fl for fl in files_to_validate if fl not in subject_files]
+            if missing:
+                subjects_with_missing_files += 1
+                logger.warning(
+                    f"Data validation - subject {subject['subject_id']} missing: {missing}"
+                )
+
+        logger.info(
+            f"Data validation - {subjects_with_missing_files} subject(s) with missing files."
+        )
 
         return file_validation_dict
 
@@ -308,11 +292,23 @@ class DataModule_nnUNetV2():
 
         # 4. Parse regions.json file once (improvable as uses a single filename/modelname)
         if not (os.path.isfile(self.regions_json_path) and self.regions_json_path.endswith(".json")):
-            raise TypeError("Regions JSON file not found or not specified.")
+            raise TypeError(f"Regions JSON file not found or not specified: {self.regions_json_path}")
         
         with open(self.regions_json_path) as jsonfile:
             regions_cfg = json.load(jsonfile)
-                    
+
+        # Only one image filename and one training model are supported for now.
+        if len(regions_cfg["image_filenames"]) != 1:
+            raise ValueError(
+                f"regions.json must list exactly one image filename; got "
+                f"{regions_cfg['image_filenames']}"
+            )
+        if len(regions_cfg["training_models"]) != 1:
+            raise ValueError(
+                f"regions.json must list exactly one training model; got "
+                f"{[model['modelname'] for model in regions_cfg['training_models']]}"
+            )
+
         image_data_filename = regions_cfg["image_filenames"][0]  # TODO permit >1 image_data filename
         regions_to_train = regions_cfg["training_models"]
         modelname = regions_to_train[0]['modelname']             # TODO permit >1 modelname?
@@ -336,13 +332,14 @@ class DataModule_nnUNetV2():
             df[col_name] = fl
 
 
-        # 7. Check all contours present per subject and filter down
-        is_contour_columns = [f"IS_CONTOUR_{i+1}_FILE" for i in range(len(contour_filenames))]        
+        # 7. Check image + all contours present per subject and filter down
+        is_contour_columns = [f"IS_CONTOUR_{i+1}_FILE" for i in range(len(contour_filenames))]
         df["IS_ALL_CONTOUR_FILES"] = df[is_contour_columns].all(axis=1)
+        df["IS_COMPLETE_SUBJECT"] = df["IS_ALL_CONTOUR_FILES"] & df["IS_IMAGE_DATA_FILE"]
 
-        logger.info(f"Number of subjects with all required contours: {df['IS_ALL_CONTOUR_FILES'].sum()}")
-        logger.info(f"Number of subjects without all required contours: {(~df['IS_ALL_CONTOUR_FILES']).sum()}")        
-        df = df[df["IS_ALL_CONTOUR_FILES"]].reset_index(drop=True)
+        logger.info(f"Data validation - {df['IS_COMPLETE_SUBJECT'].sum()} subjects with image + all contours.")
+        logger.info(f"Data validation - {(~df['IS_COMPLETE_SUBJECT']).sum()} subjects dropped (missing files).")
+        df = df[df["IS_COMPLETE_SUBJECT"]].reset_index(drop=True)
 
 
         # 8. Create folder paths for nnU-Net

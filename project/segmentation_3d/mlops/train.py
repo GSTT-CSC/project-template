@@ -98,8 +98,7 @@ def setup_data(config, xnat_download_num_workers):
     }
 
     tmp_dirs_configuration = {
-        "os_tmp_dir": config["tmp_dirs"]["OS_TMP_DIR"],
-        "tmp_working_dir": config["tmp_dirs"]["TMP_WORKING_DIR"],
+        "tmp_working_dir": config["system"]["TMP_WORKING_DIR"],
         "nnunet_raw_dir": config["nnunet"]["NNUNET_RAW_DIR"],
         "nnunet_results_dir": config["nnunet"]["NNUNET_RESULTS_DIR"],
         "nnunet_preprocessed_dir": config["nnunet"]["NNUNET_PREPROCESSED_DIR"],
