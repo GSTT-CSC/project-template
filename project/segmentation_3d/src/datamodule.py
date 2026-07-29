@@ -1,20 +1,3 @@
-"""
-From XNAT data, create an nnU-Net v2 compatible dataset locally.
-
-This is not lightning ``DataModule``!
-
-nnU-Net performs its own data loading/augmentation, so this class only creates the
-nnU-Net v2 directory schema on disk (``DatasetXXX_<model>/{imagesTr,labelsTr,imagesTs}``
-plus ``dataset.json``) from data held on XNAT.
-
-XNAT structure: each subject has, attached to an RTSTRUCT scan, a NIFTI resource that
-contains a pre-converted image volume NIfTI (.nii.gz) and one .nii.gz per labelled structure.
-
-Per-structure NIfTIs are combined into a single multi-label mask via ``nifti_contour_combiner``.
-
-Which image/contour files to use is defined in ``regions.json``.
-"""
-
 import os
 import shutil
 import glob
@@ -41,30 +24,37 @@ logger = logging.getLogger(__name__)
 
 
 class DataModule_nnUNetV2():
+    """From XNAT data, create an nnU-Net v2 compatible dataset.
 
-    def __init__(self, data_dir: str = './',
-                 xnat_configuration: dict = None,
-                 batch_size: int = 1,
-                 num_workers: int = 4,
-                 test_batch: int = 0,
+    This is not a lightning ``DataModule``!
+
+    nnU-Net performs its own data loading/augmentation, so this class only creates the
+    nnU-Net v2 directory schema on disk (``DatasetXXX_<model>/{imagesTr,labelsTr,imagesTs}``
+    plus ``dataset.json``) from data held on XNAT.
+
+    XNAT expected structure: each subject has, attached to an RTSTRUCT scan, a NIFTI resource
+    that contains a pre-converted image volume NIfTI (.nii.gz) and one .nii.gz per labelled
+    structure.
+
+    Per-structure NIfTIs are combined into a single multi-label mask via
+    ``nifti_contour_combiner``. Which image/contour files to use is defined in ``regions.json``.
+    """
+
+    def __init__(self, xnat_configuration: dict,
+                 tmp_dirs_configuration: dict,
+                 regions_json_path: str,
+                 xnat_download_num_workers: int = 4,
                  train_fraction: float = 0.9,
                  test_fraction: float = 0.1,
-                 train_val_ratio: float = 0.2,
                  random_seed: int = 42,
-                 **kwargs,
                  ):
-        super().__init__()
-        self.data_dir = data_dir
-        self.num_workers = num_workers
-        self.batch_size = batch_size
-        self.train_val_ratio = train_val_ratio
+        self.xnat_configuration = xnat_configuration
+        self.tmp_dirs_configuration = tmp_dirs_configuration
+        self.regions_json_path = regions_json_path
+        self.xnat_download_num_workers = xnat_download_num_workers
         self.train_fraction = train_fraction
         self.test_fraction = test_fraction
         self.random_seed = random_seed
-        self.xnat_configuration = xnat_configuration
-        self.test_batch = test_batch
-        self.tmp_dirs_configuration = kwargs.get("tmp_dirs_configuration", None)
-        self.regions_json_path = kwargs.get("regions_json_path", None)
 
     def make_tmp_dir(self) -> None:
         """
@@ -144,7 +134,7 @@ class DataModule_nnUNetV2():
 
         data_builder = DataBuilderXNAT(self.xnat_configuration,
                                        actions=actions,
-                                       num_workers=self.num_workers)
+                                       num_workers=self.xnat_download_num_workers)
 
         data_builder.fetch_data()
         self.raw_data = data_builder.dataset

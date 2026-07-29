@@ -50,7 +50,7 @@ def log_run_to_mlflow(log_path):
 def setup_environment(config):
     """Sets up the following:
     1) GPU environment -> returns device
-    2) number of workers for XNAT data download -> returns xnat_num_workers
+    2) number of workers for XNAT data download -> returns xnat_download_num_workers
     3) number of workers for nnU-Net data loading + augment -> sets nnUNet_n_proc_DA env var
     """
 
@@ -81,9 +81,9 @@ def setup_environment(config):
 
     # xnat download number of workers
     max_workers = int(config["system"]["XNAT_DOWNLOAD_NUM_WORKERS"])
-    xnat_num_workers = min(max_workers, multiprocessing.cpu_count())
+    xnat_download_num_workers = min(max_workers, multiprocessing.cpu_count())
 
-    return xnat_num_workers, device
+    return xnat_download_num_workers, device
 
 
 def setup_data(config, xnat_download_num_workers):
@@ -109,7 +109,7 @@ def setup_data(config, xnat_download_num_workers):
         xnat_configuration=xnat_configuration,
         train_fraction=float(config["data"]["TRAIN_FRACTION"]),
         test_fraction=float(config["data"]["TEST_FRACTION"]),
-        num_workers=xnat_download_num_workers,
+        xnat_download_num_workers=xnat_download_num_workers,
         random_seed=int(config["system"]["RANDOM_SEED"]),
         tmp_dirs_configuration=tmp_dirs_configuration,
         regions_json_path=config["data"]["REGIONS_JSON_PATH"],
