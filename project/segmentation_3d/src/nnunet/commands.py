@@ -2,15 +2,62 @@
 List of nnU-Net v2 system commands and config translation functions.
 """
 
+import inspect
 import json
 import os
 from dataclasses import dataclass
+import nnunetv2
+from nnunetv2.utilities.find_class_by_name import recursive_find_python_class
 from typing import List, Optional
 
 
 # ======================================================================================
 # Validated config objects
 # ======================================================================================
+
+def plans_identifier_for_planner(planner_name):
+
+    """Ask nnU-Net which plans file the named planner writes.
+
+    How nnU-Net handles this planner vs plan, as it's really not obvious:
+
+    1. ``nnUNetv2_plan_and_preprocess -pl <planner>`` (NNUNET_PLANNER from config) runs that planner.
+       Each planner writes a plan file with a hardcoded name, defined as the ``plans_name`` argument
+       to its constructor. For the purpose of this template, we call this the plan identifier, 
+       and its variable name is <plans_identifier>.
+
+    2. The planner writes <nnUNet_preprocessed>/<dataset_name>/<plans_identifier>.json, which contains
+       the patch size, batch size, spacing, etc. for that dataset. This is what nnU-Net uses to 
+       configure training and inference.
+
+    3. The variable <plans_identifier> must be handed back as ``-p`` to nnUNetv2_train, 
+       _find_best_configuration and _predict. Each process basically recreates the path of the
+       plan (as in step 2, <nnUNet_preprocessed>/<dataset_name>/<plans_identifier>.json) and
+       loads it. 
+
+    What this function does is read the planner's name, find the associated nnunet class, and then
+    read its hardcoded ``plans_name`` attribute (which is directly <plans_identifier>) and returns
+    this value.
+
+    This sounds like a lot of work for nothing but nnU-Net works this way as it decouples the 
+    planning and preprocessing step (can generate multiple plans from multiple datasets) to the
+    training and inference parts.
+    """
+
+    planner_class = recursive_find_python_class(
+        os.path.join(nnunetv2.__path__[0], "experiment_planning"),
+        planner_name,
+        current_module="nnunetv2.experiment_planning",
+    )
+    if planner_class is None:
+        raise ValueError(f"Config error: nnunet.NNUNET_PLANNER '{planner_name}' is not a nnU-Net v2 planner class")
+
+    # read the plan name from class constructor
+    plans_name = inspect.signature(planner_class.__init__).parameters.get("plans_name")
+
+    return plans_name.default
+
+
 @dataclass(frozen=True)
 class NNUNetModelSpec:
     """Specs for the nnU-Net model/training run.
@@ -22,7 +69,6 @@ class NNUNetModelSpec:
     dataset_name: str
     folds: List[int]
     trainer_name: str
-    plans_identifier: str
     configuration: str
     planner: str
     gpu_memory_target: Optional[int]
@@ -44,7 +90,6 @@ class NNUNetModelSpec:
         plain_settings = {}
         for field_name, config_key in (
             ("trainer_name", "NNUNET_TRAINER"),
-            ("plans_identifier", "NNUNET_PLANS_IDENTIFIER"),
             ("planner", "NNUNET_PLANNER"),
         ):
             plain_settings[field_name] = config["nnunet"][config_key].strip()
@@ -105,6 +150,14 @@ class NNUNetModelSpec:
             use_npz=raw_npz in ("true", "--npz"),
             **plain_settings,
         )
+
+    @property
+    def plans_identifier(self):
+        """Name of the plans file the chosen planner writes; passed back to nnU-Net as -p.
+        See plans_identifier_for_planner for more info on planner vs plans file.
+        """
+
+        return plans_identifier_for_planner(self.planner)
 
     @property
     def preprocess_configurations(self):
