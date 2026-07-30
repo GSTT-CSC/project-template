@@ -10,6 +10,7 @@ import mlflow
 from src.datamodule import DataModule_nnUNetV2
 import src.nnunet.commands as commands
 import src.nnunet.runtime as nnunet_runtime
+import src.nnunet.mlflow_logging as nnunet_mlflow
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ def train(config):
     """Full XNAT data loading -> nnU-Net v2 training -> MLflow logging workflow."""
 
     # add description of logged metrics in mlflow
-    nnunet_runtime.log_run_overview_description()
+    nnunet_mlflow.log_run_overview_description()
 
     xnat_download_num_workers, device = setup_environment(config)
     dm = setup_data(config, xnat_download_num_workers)
@@ -167,7 +168,7 @@ def train(config):
 
         # Output final validation metrics as figures
         crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
-        nnunet_runtime.log_metric_plots(
+        nnunet_mlflow.log_metric_plots(
             summary_path=os.path.join(crossval_dir, "postprocessed", "summary.json"),
             dataset_json_path=os.path.join(crossval_dir, "dataset.json"),
             artifact_path="crossval_results",
@@ -209,7 +210,7 @@ def train(config):
             cmd = commands.evaluate_folder_command(test_gt_dir, test_pred_dir, dataset_json, plans_json)
             logger.info(f"nnUNetv2_evaluate_folder: {cmd}")
             nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
-            nnunet_runtime.log_metric_plots(
+            nnunet_mlflow.log_metric_plots(
                 summary_path=os.path.join(test_pred_dir, "summary.json"),
                 dataset_json_path=dataset_json,
                 artifact_path="test_set",
@@ -231,7 +232,7 @@ def train(config):
 
     # MLflow metadata logging
     logger.info("Storing artifacts in MLflow ...")
-    nnunet_runtime.log_nnunet_artifacts(artifact_dir)
+    nnunet_mlflow.log_nnunet_artifacts(artifact_dir)
     logger.info("Artifact storage complete.")
 
     # Log dummy model to enable MLflow registration
