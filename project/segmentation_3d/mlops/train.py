@@ -130,7 +130,7 @@ def train(config):
     dm = setup_data(config, xnat_download_num_workers)
 
     # define/bundle parameters for nnunetv2 to run via CLI
-    spec = commands.build_nnunet_model_spec(config, dm)
+    spec = commands.NNUNetModelSpec.from_config(config, dm)
 
     # base logging folder for MLFlow / nnU-Net
     artifact_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name)

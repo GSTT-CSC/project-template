@@ -13,60 +13,98 @@ from typing import List, Optional
 # ======================================================================================
 @dataclass(frozen=True)
 class NNUNetModelSpec:
-    """Validated description of the nnU-Net model/training run."""
+    """Specs for the nnU-Net model/training run.
+    A frozen dataclass is used so that nothing can modify the run's parameters.
 
+    For now, always build via ``from_config``, which is where the values are parsed and validated.
+    """
     dataset_id: str
     dataset_name: str
     folds: List[int]
-    trainer_name: str = "nnUNetTrainerNoMirroring"
-    plans_identifier: str = "nnUNetPlans"
-    configuration: str = "3d_fullres"
-    planner: str = "ExperimentPlanner"
-    gpu_memory_target: Optional[int] = None
-    use_npz: bool = False
+    trainer_name: str
+    plans_identifier: str
+    configuration: str
+    planner: str
+    gpu_memory_target: Optional[int]
+    use_npz: bool
 
-    def __post_init__(self):
-        # Variable validation only.
+    @classmethod
+    def from_config(cls, config, dm):
+        """Build the spec from the config file + DataModule (parses + validates)"""
 
-        if not str(self.dataset_id) or not str(self.dataset_id).isdigit():
-            raise ValueError(f"NNUNetModelSpec.dataset_id must be a non-empty numeric string, got: {self.dataset_id}")
+        # dataset_id / dataset_name come from the DataModule, not the config file.
+        if not str(dm.dataset_id).isdigit():
+            raise ValueError(f"DataModule dataset_id must be a numeric string, got: {dm.dataset_id}")
 
-        # These fields must each be a single, non-empty string.
-        for field_name in ("dataset_name", "trainer_name", "plans_identifier", "planner"):
-            value = getattr(self, field_name)
-            if not isinstance(value, str) or not value:
-                raise ValueError(f"NNUNetModelSpec.{field_name} must be a single non-empty string, got: {value}")
+        dataset_name = dm.dataset_dir_name.strip()
+        if not dataset_name:
+            raise ValueError("DataModule dataset_dir_name must not be blank.")
 
-        # configuration must also be one config. List means several configurations or ensembling,
-        # not currently supported; error should refelect this.
-        if not isinstance(self.configuration, str):
+        # Plain string settings; blank is the only way these can be wrong here.
+        plain_settings = {}
+        for field_name, config_key in (
+            ("trainer_name", "NNUNET_TRAINER"),
+            ("plans_identifier", "NNUNET_PLANS_IDENTIFIER"),
+            ("planner", "NNUNET_PLANNER"),
+        ):
+            plain_settings[field_name] = config["nnunet"][config_key].strip()
+            if not plain_settings[field_name]:
+                raise ValueError(f"Config error: nnunet.{config_key} must not be blank.")
+
+        # NNUNET_UNET_CONFIGURATION: one configuration only. Several would mean ensembling,
+        # which needs nnUNetv2_ensemble and dropping --disable_ensembling. This is not supported
+        # in this template.
+        configuration = config["nnunet"]["NNUNET_UNET_CONFIGURATION"].strip()
+        if configuration == "3d_cascade_fullres":
             raise ValueError(
-                "NNUNetModelSpec.configuration must be a single configuration string; multiple "
-                "configurations / ensembling are not supported yet (requires dropping "
-                "--disable_ensembling and using nnUNetv2_ensemble)."
+                "Config error: nnunet.NNUNET_UNET_CONFIGURATION '3d_cascade_fullres' is not "
+                "supported yet: cascade test inference requires a two-stage predict that this "
+                "template does not implement. Use 3d_fullres, 3d_lowres or 2d."
             )
-        
-        if not self.configuration:
-            raise ValueError("NNUNetModelSpec.configuration must be a non-empty string.")
-
-        # 3d_cascade_fullres is also unsupported at the moment.
-        if self.configuration == "3d_cascade_fullres":
+        if configuration not in ("2d", "3d_fullres", "3d_lowres"):
             raise ValueError(
-                "NNUNetModelSpec.configuration '3d_cascade_fullres' is not supported yet: cascade "
-                "test inference requires a two-stage predict that this template does not implement. "
-                "Use 3d_fullres, 3d_lowres or 2d."
+                f"Config error: nnunet.NNUNET_UNET_CONFIGURATION must be 2d, 3d_fullres or "
+                f"3d_lowres; got: {configuration}."
             )
 
-        is_folds_non_empty_list_of_ints = (
-            isinstance(self.folds, list)
-            and bool(self.folds)
-            and all(isinstance(fold, int) and not isinstance(fold, bool) for fold in self.folds)
+        # NNUNET_FOLD, e.g. "[0]" -> [0].
+        raw_folds = config["nnunet"]["NNUNET_FOLD"].strip()
+        try: # easiest way to parse a list of ints from a string is to use json.loads
+            folds = json.loads(raw_folds)
+        except json.JSONDecodeError:
+            folds = None
+        if not isinstance(folds, list) or not folds or not all(type(f) is int for f in folds):
+            raise ValueError(
+                f"Config error: nnunet.NNUNET_FOLD must be a non-empty list of integers, "
+                f"e.g. [0] or [0, 1, 2, 3, 4]; got: {raw_folds}."
+            )
+
+        # NNUNET_GPU_MEMORY_TARGET in GB; blank -> None -> nnU-Net's own default.
+        raw_gpu_memory_target = config["nnunet"]["NNUNET_GPU_MEMORY_TARGET"].strip()
+        if not raw_gpu_memory_target:
+            gpu_memory_target = None
+        elif raw_gpu_memory_target.isdigit() and int(raw_gpu_memory_target) > 0:
+            gpu_memory_target = int(raw_gpu_memory_target)
+        else:
+            raise ValueError(
+                f"Config error: nnunet.NNUNET_GPU_MEMORY_TARGET must be a positive integer (GB) "
+                f"or blank, got: {raw_gpu_memory_target}."
+            )
+
+        # NNUNET_NPZ: softmax .npz export, needed for find_best_configuration / postprocessing.
+        raw_npz = config["nnunet"]["NNUNET_NPZ"].strip().lower()
+        if raw_npz not in ("true", "false", "--npz"):
+            raise ValueError(f"Config error: nnunet.NNUNET_NPZ must be True or False, got: {raw_npz}.")
+
+        return cls(
+            dataset_id=dm.dataset_id,
+            dataset_name=dataset_name,
+            folds=folds,
+            configuration=configuration,
+            gpu_memory_target=gpu_memory_target,
+            use_npz=raw_npz in ("true", "--npz"),
+            **plain_settings,
         )
-        if not is_folds_non_empty_list_of_ints:
-            raise ValueError(f"NNUNetModelSpec.folds must be a non-empty list of integers, got:{self.folds}.")
-        
-        if self.gpu_memory_target is not None and self.gpu_memory_target <= 0:
-            raise ValueError(f"NNUNetModelSpec.gpu_memory_target must be positive when provided, got: {self.gpu_memory_target}.")
 
     @property
     def preprocess_configurations(self):
@@ -87,60 +125,6 @@ class NNUNetModelSpec:
         if self.configuration == "3d_cascade_fullres":
             return ["3d_lowres", "3d_cascade_fullres"]
         return [self.configuration]
-
-
-# ======================================================================================
-# Build config objects from config
-# ======================================================================================
-
-def nnunet_npz_enabled(config):
-    """
-    Whether to export softmax .npz (needed for find_best_configuration / postprocessing).
-    """
-
-    value = config["nnunet"]["NNUNET_NPZ"].strip().lower()
-    if value == "true" or value == "--npz":
-        return True
-    if value == "false":
-        return False
-    raise ValueError(f"NNUNET_NPZ must be set to True or False, got: {value}.")
-
-
-def parse_nnunet_folds(config):
-    """Parse nnunet.NNUNET_FOLD as JSON"""
-
-    raw_folds = config["nnunet"]["NNUNET_FOLD"].strip()
-    try:
-        return json.loads(raw_folds)
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"nnunet.NNUNET_FOLD must be a non-empty JSON list of integers, e.g. [0], got: {raw_folds}.") from exc
-
-
-def parse_gpu_memory_target(config):
-    """Parse optional nnunet.NNUNET_GPU_MEMORY_TARGET (GB). int>0 or blank """
-    
-    raw = config["nnunet"]["NNUNET_GPU_MEMORY_TARGET"].strip()
-    if not raw:
-        return None
-    if raw.isdigit():
-        return int(raw)
-    raise ValueError(f"nnunet.NNUNET_GPU_MEMORY_TARGET must be a positive integer (GB), got: {raw}.")
-
-
-def build_nnunet_model_spec(config, dm):
-    """Build NNUNetModelSpec dataclass from cleaned up config + the prepared DataModule."""
-    
-    return NNUNetModelSpec(
-        dataset_id=dm.dataset_id,
-        dataset_name=dm.dataset_dir_name.strip(),
-        trainer_name=config["nnunet"]["NNUNET_TRAINER"].strip(),
-        plans_identifier=config["nnunet"]["NNUNET_PLANS_IDENTIFIER"].strip(),
-        configuration=config["nnunet"]["NNUNET_UNET_CONFIGURATION"].strip(),
-        folds=parse_nnunet_folds(config),
-        planner=config["nnunet"]["NNUNET_PLANNER"].strip(),
-        gpu_memory_target=parse_gpu_memory_target(config),
-        use_npz=nnunet_npz_enabled(config),
-    )
 
 
 # ======================================================================================
