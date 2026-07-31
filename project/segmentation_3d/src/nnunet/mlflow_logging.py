@@ -21,6 +21,8 @@ artifact_filenames = {
     "postprocessing.pkl",
     "debug.json",
     "progress.png",
+    "dice.png",
+    "structure_size.png",
     "checkpoint_best.pth",
     "checkpoint_final.pth",
     "summary.json",
@@ -42,15 +44,8 @@ default_run_overview_description = """\
 - **ema_fg_dice** — exponential moving average of `mean_fg_dice` (smoothed).
 
 ## Artifacts
-- **fold_<f>/** — validation metrics per fold.
-- **crossval_results/** — validation metrics averaged over all folds, plus per-structure
-  Dice / size figures (`dice.png`, `structure_size.png`).
-- **test_set/** — test-set Dice / size figures (`dice.png`, `structure_size.png`) scored
-  against ground truth.
-- **test_set/labelsTs_predicted/** — model predictions on the test set.
-- **test_set/labelsTs_predicted_pp/** — post-processed test predictions + `summary.json`
-  (metrics vs ground truth).
-- **logs/run.log** — full terminal log for the run (logger.* + nnU-Net subprocess output).
+They are sorted out using nnU-Net's own output folder structure. Just be aware that validation and test runs include
+`postprocessed/` folders which should be used for final metrics.
 """
 
 
@@ -65,7 +60,7 @@ def log_run_overview_description(description: str = default_run_overview_descrip
 
 def log_nnunet_artifacts(path_to_walk: str):
     """
-    Log selected nnU-Net v2 artifacts to MLflow.
+    Log selected nnU-Net v2 artifacts to MLflow, mirroring their layout on disk.
 
     Any files not listed in artifact_filenames and artifact_filename_patterns are ignored,
     such as large .npz files and more.
@@ -74,7 +69,10 @@ def log_nnunet_artifacts(path_to_walk: str):
     """
 
     for root, _, files in os.walk(path_to_walk, topdown=True):
-        artifact_path = _resolve_artifact_path(root)
+        # None at the top level, so those files land at the root of the MLflow artifact tree.
+        relative_dir = os.path.relpath(root, path_to_walk)
+        artifact_path = None if relative_dir == os.curdir else relative_dir
+
         for file_name in files:
             if not _should_log_artifact(file_name):
                 continue
@@ -84,24 +82,20 @@ def log_nnunet_artifacts(path_to_walk: str):
                 logger.warning(f"Skipping missing nnUNet artifact: {full_file_path}")
                 continue
 
-            if artifact_path is None:
-                logger.info(f"Logging nnUNet artifact: {file_name}")
-                mlflow.log_artifact(full_file_path)
-            else:
-                logger.info(f"Logging nnUNet artifact to {artifact_path}: {file_name}")
-                mlflow.log_artifact(full_file_path, artifact_path=artifact_path)
+            logger.info(f"Logging nnUNet artifact: {os.path.join(relative_dir, file_name)}")
+            mlflow.log_artifact(full_file_path, artifact_path=artifact_path)
 
 
-def log_metric_plots(summary_path, dataset_json_path, artifact_path):
-    """Generate metric figures (Dice, structure size) from a summary.json and log them to mlflow.
+def make_metric_plots(summary_path, dataset_json_path, title):
+    """Generate metric figures (dice.png, structure_size.png) from a summary.json.
 
-    Shared by the cross-validation and test summaries. ``artifact_path`` sets the mlflow folder
-    and doubles as the figure title label. Figures are written next to the summary.
+    Shared by the cross-validation and test summaries; ``title`` labels the figures. They are
+    written next to the summary.
     """
 
     try:
         if not os.path.isfile(summary_path):
-            logger.warning(f"skipping {artifact_path} plots; {summary_path} not found.")
+            logger.warning(f"skipping {title} plots; {summary_path} not found.")
             return
 
         if not (dataset_json_path and os.path.isfile(dataset_json_path)):
@@ -109,17 +103,15 @@ def log_metric_plots(summary_path, dataset_json_path, artifact_path):
 
         from src.nnunet import plots # only if valid
 
-        figure_paths = plots.plot_metric_figures(
+        plots.plot_metric_figures(
             summary_path,
             output_dir=os.path.dirname(summary_path),
             dataset_json_path=dataset_json_path,
-            title=artifact_path.replace("_", " "),
+            title=title,
         )
-        for figure_path in figure_paths:
-            mlflow.log_artifact(figure_path, artifact_path=artifact_path)
 
     except Exception:
-        logger.exception(f"Failed to generate/log {artifact_path} plots.")
+        logger.exception(f"Failed to generate {title} plots.")
 
 
 def log_new_metrics(checkpoint_path, fold, last_epoch, configuration=None):
@@ -152,24 +144,3 @@ def _should_log_artifact(file_name: str) -> bool:
     is_pattern_match = any(pattern in file_name for pattern in artifact_filename_patterns)
 
     return (is_exact_match or is_pattern_match)
-
-
-def _resolve_artifact_path(root: str):
-    root_parts = os.path.normpath(root).split(os.sep)
-
-    fold_dir = next((part for part in root_parts if part.startswith("fold_")), None)
-    if fold_dir is not None:
-        if "validation" in root_parts:
-            return os.path.join(fold_dir, "validation")
-        return fold_dir
-
-    if any("crossval_results" in part for part in root_parts):
-        return "crossval_results"
-
-    # Test-set predictions (labelsTs_predicted / labelsTs_predicted_pp) grouped under a
-    # single test_set/ folder in MLflow (on-disk nnU-Net names are left unchanged).
-    labels_ts_dir = next((part for part in root_parts if part.startswith("labelsTs")), None)
-    if labels_ts_dir is not None:
-        return os.path.join("test_set", labels_ts_dir)
-
-    return None

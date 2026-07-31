@@ -165,10 +165,10 @@ def train(config):
 
         # Output final validation metrics as figures, from the postprocessed summary.
         crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
-        nnunet_mlflow.log_metric_plots(
+        nnunet_mlflow.make_metric_plots(
             summary_path=os.path.join(crossval_dir, "postprocessed", "summary.json"),
             dataset_json_path=os.path.join(crossval_dir, "dataset.json"),
-            artifact_path="crossval_results",
+            title="cross-validation",
         )
     else:
         logger.info("Skipping nnUNetv2_find_best_configuration ...")
@@ -203,10 +203,10 @@ def train(config):
             cmd = commands.evaluate_folder_command(test_gt_dir, test_pred_dir, dataset_json, plans_json)
             logger.info(f"nnUNetv2_evaluate_folder: {cmd}")
             nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
-            nnunet_mlflow.log_metric_plots(
+            nnunet_mlflow.make_metric_plots(
                 summary_path=os.path.join(test_pred_dir, "summary.json"),
                 dataset_json_path=dataset_json,
-                artifact_path="test_set",
+                title="test set",
             )
         else:
             logger.warning("No test ground truth (labelsTs) found; skipping test-set evaluation.")
