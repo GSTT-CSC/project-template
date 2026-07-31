@@ -143,30 +143,27 @@ def train(config):
     logger.info(f"Env variable set: 'nnUNet_preprocessed' = '{dm.nnunet_preprocessed_dir}'.")
     logger.info(f"Env variable set: 'nnUNet_results' = '{dm.nnunet_results_dir}'.")
 
-    # nnU-Net v2 preprocessing
+    # nnU-Net v2 preprocessing (generate patch size, batch size, architecture, preprocess data)
     cmd = commands.plan_and_preprocess_command(spec)
     logger.info(f"nnUNetv2_plan_and_preprocess: {cmd}")
     nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
 
-    # nnUNetv2 training (per fold; 3d_cascade_fullres config trains 3d_lowres first)
+    # nnUNetv2 training
     for fold in spec.folds:
         for configuration in spec.training_configurations:
             cmd = commands.train_command(spec, fold, configuration, device)
             fold_dir = commands.fold_artifact_dir(dm.nnunet_results_dir, spec, fold, configuration)
             logger.info(f"nnUNetv2_train (fold {fold}, {configuration}): {cmd}")
             
-            nnunet_runtime.run_command(
-                cmd, artifact_dir=fold_dir, fold=fold,
-                configuration=configuration, log_metrics=True,
-            )
+            nnunet_runtime.run_command(cmd, artifact_dir=fold_dir, fold=fold, configuration=configuration, log_metrics=True)
 
-    # nnUNetv2 find best configuration
+    # nnUNetv2 find best configuration and postprocessing method
     if spec.use_npz:
         cmd = commands.find_best_configuration_command(spec)
         logger.info(f"nnUNetv2_find_best_configuration: {cmd}")
         nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
 
-        # Output final validation metrics as figures
+        # Output final validation metrics as figures, from the postprocessed summary.
         crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
         nnunet_mlflow.log_metric_plots(
             summary_path=os.path.join(crossval_dir, "postprocessed", "summary.json"),
@@ -177,29 +174,25 @@ def train(config):
         logger.info("Skipping nnUNetv2_find_best_configuration ...")
 
     # nnUNetv2 predict (test set). Predictions are written under nnUNet_results (not raw) so
-    # log_nnunet_artifacts picks them up and logs them to MLflow.
+    # log_nnunet_artifacts later picks them up and logs them to MLflow.
     test_images_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "imagesTs")
     test_labels_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted")
     cmd = commands.predict_command(spec, test_images_dir, test_labels_dir, device)
     logger.info(f"nnUNetv2_predict: {cmd}")
     nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
 
-    # nnUNetv2 postprocessing
+    # nnUNetv2 postprocessing (test set)
     if spec.use_npz:
-        test_labels_pp_dir = os.path.join(
-            dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_pp"
-        )
+        test_labels_pp_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_pp")
         postprocessing_file = nnunet_runtime.locate_file(artifact_dir, "postprocessing.pkl")
-        cmd = commands.apply_postprocessing_command(
-            spec, test_labels_dir, test_labels_pp_dir, postprocessing_file
-        )
+        cmd = commands.apply_postprocessing_command(spec, test_labels_dir, test_labels_pp_dir, postprocessing_file)
         logger.info(f"nnUNetv2_apply_postprocessing: {cmd}")
         nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
     else:
         logger.info("Skipping nnUNetv2_apply_postprocessing ...")
 
-    # nnUNetv2 evaluate (test set): score the final test predictions against the test ground
-    # truth (labelsTs) and output Test figures.
+    # nnUNetv2 evaluate (test set). Score the final test predictions against the test ground
+    # truth (labelsTs) and output test set figures.
     try:
         test_gt_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "labelsTs")
         test_pred_dir = test_labels_pp_dir if spec.use_npz else test_labels_dir

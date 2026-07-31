@@ -1,5 +1,20 @@
 """
 List of nnU-Net v2 system commands and config translation functions.
+
+Works in single configuration only.
+
+nnU-Net's own workflow typically trains several variants (that they call configurations: 2d, 3d_fullres,
+3d_lowres). It then compares them on the cross-validation, and can ensemble the best two.
+
+This template deliberately does not allow multiple configurations. It trains the one configuration set
+by NNUNET_UNET_CONFIGURATION and passes --disable_ensembling. To compare configurations, run the whole
+pipeline once per configuration and compare the resulting MLflow runs by hand.
+
+nnU-Net's way introduces a lot of complexity and compute time so we prefer to leave this bit manual.
+
+nnU-Net remains self-configuring within that configuration: patch size, batch size and network
+architecture are still derived from the data and the GPU memory budget. What this template takes over
+manually is only the choice between configurations.
 """
 
 import inspect
@@ -136,7 +151,9 @@ class NNUNetModelSpec:
                 f"or blank, got: {raw_gpu_memory_target}."
             )
 
-        # NNUNET_NPZ: softmax .npz export, needed for find_best_configuration / postprocessing.
+        # NNUNET_NPZ: softmax .npz export. Only needed to ensemble several configurations, which
+        # this template does not do - but it currently also gates find_best_configuration and
+        # apply_postprocessing in train.py, so leaving it True keeps those steps running.
         raw_npz = config["nnunet"]["NNUNET_NPZ"].strip().lower()
         if raw_npz not in ("true", "false", "--npz"):
             raise ValueError(f"Config error: nnunet.NNUNET_NPZ must be True or False, got: {raw_npz}.")
@@ -209,9 +226,10 @@ def fold_artifact_dir(results_dir, spec, fold, configuration):
 
 
 def crossval_results_dir(results_dir, spec):
-    """Grab dir that find_best_configuration writes the cross-validation results to.
+    """Directory find_best_configuration writes the accumulated cross-validation results to.
 
-    Current understanding looks like ``crossval_results_folds_0_1_2_3_4``.
+    Named crossval_results_folds_<folds joined by _>, e.g. crossval_results_folds_0 when
+    NNUNET_FOLD = [0].
     """
 
     folds_str = "_".join(str(fold) for fold in spec.folds)
@@ -224,7 +242,13 @@ def crossval_results_dir(results_dir, spec):
 
 
 def plan_and_preprocess_command(spec):
-    """ Run CLI command as defined -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/experiment_planning/plan_and_preprocess_entrypoints.py"""
+    """ Run CLI command as defined -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/experiment_planning/plan_and_preprocess_entrypoints.py
+    
+    This command
+    1) measures the dataset (image sizes, spacings, intensity statistics),
+    2) has NNUNET_PLANNER turn those measurements into a patch size, batch size and architecture,
+    3) crops / normalises / resamples every case and write it out ready for training.
+    """
     
     cmd = [
         "nnUNetv2_plan_and_preprocess",
@@ -241,7 +265,21 @@ def plan_and_preprocess_command(spec):
 def train_command(spec, fold, configuration, device):
     """
     Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/run/run_training.py.
-    
+
+    1) on first call, create folds file (splits_final.json) which contains what data goes in what fold
+    2) reads plans file for patch/batch size and architecture, and the trainer for epochs, DA, loss
+    3) train one fold at a time as defined by the `fold` input.
+
+    Checkpoints go to nnUNet_results/<dataset>/<trainer>__<plans>__<configuration>/fold_<fold>/
+    (i.e. what fold_artifact_dir builds) and are: checkpoint_latest, checkpoint_best (best EMA
+    dice), checkpoint_final (end of run)
+
+    Once epochs are done, the final-epoch weights (checkpoint_final) predict the fold's validation
+    cases - nnU-Net only uses checkpoint_best here if --val_best is passed, which it is not.
+    These are written to <fold folder>/validation/ as .nii.gz segmentations, plus one .npz of
+    softmax probabilities per case if --npz was set (only used for ensembling - see
+    find_best_configuration_command).
+
     Training variants (spec.trainer_name) loosely defined in
     https://github.com/MIC-DKFZ/nnUNet/tree/master/nnunetv2/training/nnUNetTrainer/variants.
     """
@@ -263,11 +301,38 @@ def train_command(spec, fold, configuration, device):
 def find_best_configuration_command(spec):
     """
     Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/evaluation/find_best_configuration.py
+
+    Copies the .nii.gz validation predictions out of each requested fold_N/validation/ into a single
+    crossval_results_folds_<folds>/ directory and scores them against the ground truth
+    (summary.json). On that basis it (in theory) makes two decisions:
+
+    1) (NOT DONE IN THIS REPOSITORY) Which configuration is best by comparing the mean foreground
+       Dice of each trained configuration, and of ensembles of two if allowed.
+       Since this template trains one configuration and passes --disable_ensembling, there is always
+       only one configuration that wins by default. The .npz softmax files are only read to
+       build those ensembles, so here they are written during training and never used.
+
+    2) Which "postprocessing method" is best - on the winner configuration, it tries keeping only the
+       largest connected blob of voxels and deleting the rest, first across all foreground then
+       per class. Models tend to emit stray voxels away from the real structure and dropping them
+       can increase Dice, but this is not always true if the structure is multi-focal; each cleanup
+       is kept only if it measurably improves Dice.
+       The best "postprocessing method" is saved as postprocessing.pkl, which apply_postprocessing_command
+       later replays on the test predictions.
+
+    Overall the output of this command is the crossval_results_folds_<folds> directory with the following inside:
+    - (a) fold's validation predictions (actual validation predictions before postprocessing)
+    - (b) summary.json (summary of metrics before postprocessing)
+    - (c) postprocessing.pkl (the chosen "postprocessing method") from point 2
+    - (d) postprocessing.json (before/after Dice scores for the above decided postprocessing method)
+    - (e) /postprocessed including the same as (a) and (b) (predictions and summary) but after postprocessing
+
+    Plus, one level up in nnUNet_results/<dataset_name>/:
+    - (f) inference_information.json, inference_instructions.txt (the winning model, its pre/post
+          postprocessing Dice, paths to postprocessing.pkl and plans.json, and ready-made commands)
     """
 
-    # --disable_ensembling below is adequate on a single config. Extra guard here
-    # such that if multiple configs are supported in the future, --disable_ensembling
-    # can be removed. 
+    # See the single-configuration note at the top of this module.
     if not isinstance(spec.configuration, str):
         raise ValueError("remove --disable_ensembling for multiple configurations.")
     return [
@@ -284,12 +349,21 @@ def find_best_configuration_command(spec):
 def predict_command(spec, input_dir, output_dir, device):
     """
     Runs CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/inference/predict_from_raw_data.py
+
+    Segments every image in input_dir with the trained model, writing .nii.gz masks to output_dir.
+
+    Does no post-processing (nnU-Net keeps that separate, see apply_postprocessing_command).
+
+    -f lists which fold(s) to predict with: nnU-Net loads one model per fold and averages their
+    predictions, so NNUNET_FOLD = [0] predicts with a single model while [0, 1, 2, 3, 4] ensembles
+    five. Note this is ensembling across folds, unrelated to ensembling configurations.
+
+    Predicts with checkpoint_final (the -chk default), which is also what the training run used for
+    its own validation (--val_best is off by default), so the two sets of metrics are comparable.
     """
 
-    # -c uses the single trained configuration. Extra guard here such that if multiple
-    # configs are supported in the future and the optimal inference configuration is
-    # determined by find_best_configuration, the final configuration should be read from
-    # find_best_configuration's inference_instructions.txt instead of the training list.
+    # See the single-configuration note at the top of this module. With several configurations the
+    # one to predict with comes from find_best_configuration's inference_information.json.
     if not isinstance(spec.configuration, str):
         raise ValueError("read -c from inference_instructions.txt for multiple configurations.")
 
@@ -309,10 +383,13 @@ def predict_command(spec, input_dir, output_dir, device):
 def apply_postprocessing_command(spec, input_dir, output_dir, postprocessing_file):
     """
     Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/postprocessing/remove_connected_components.py
+
+    Applies the postprocessing that find_best_configuration decided on (postprocessing.pkl) to a
+    folder of predictions, writing the cleaned segmentations to output_dir.
     """
 
-    # if multiple configs are supported in the future, -plans_json and -dataset_json must be
-    # passed explicitly (from an ensemble member).
+    # See the single-configuration note at the top of this module. With several configurations
+    # -plans_json and -dataset_json must be passed explicitly, from an ensemble member.
     if not isinstance(spec.configuration, str):
         raise ValueError("pass -plans_json / -dataset_json for multiple configurations.")
     return [
