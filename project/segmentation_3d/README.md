@@ -19,7 +19,7 @@ command-line entry points.
    and it should be straighforward to figure out what to modify.
 4. Run the pipeline (via `csc-mlops`), for instance:
 ```shell
-mlops run mlops/train.py -c <path_to_config> --add_folder ../shared
+mlops run mlops/train.py -c <path_to_config> --include_path ../shared
 ```
 
 ## What a run creates on disk
