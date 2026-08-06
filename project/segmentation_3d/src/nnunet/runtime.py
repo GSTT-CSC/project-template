@@ -109,8 +109,8 @@ def run_command(
                         f" {ckpt_latest} at epoch: {last_epoch}."
                     )
             elif not missing_checkpoint_warned:
-                logger.warning(
-                    f"Checkpoint not found at expected location: {ckpt_latest}."
+                logger.info(
+                    f"No periodic checkpoint yet at {ckpt_latest}; metrics logged when training ends."
                 )
                 missing_checkpoint_warned = True
             time.sleep(poll_seconds)
@@ -124,7 +124,7 @@ def run_command(
         logger.error(f"Command failed: {cmd} (exit {return_code})")
         raise subprocess.CalledProcessError(return_code, cmd)
 
-    if log_metrics and ckpt_latest.exists():
+    if log_metrics and ckpt_final.exists():
         log_new_metrics(
             checkpoint_path=str(ckpt_final),
             fold=fold,

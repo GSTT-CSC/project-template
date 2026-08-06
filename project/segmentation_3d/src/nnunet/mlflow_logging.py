@@ -33,6 +33,7 @@ artifact_filenames = {
 artifact_filename_patterns = {
     "training_log",
     ".nii.gz",
+    ".dcm",  # test-set predictions as RTSTRUCT
 }
 
 

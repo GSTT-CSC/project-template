@@ -11,6 +11,7 @@ from src.datamodule import DataModule_nnUNetV2
 import src.nnunet.commands as commands
 import src.nnunet.runtime as nnunet_runtime
 import src.nnunet.mlflow_logging as nnunet_mlflow
+import src.utils.rtstruct_tools as rtstruct_tools
 
 logger = logging.getLogger(__name__)
 
@@ -191,14 +192,15 @@ def train(config):
     else:
         logger.info("Skipping nnUNetv2_apply_postprocessing ...")
 
+    # The final test predictions: postprocessed if we produced them, raw predictions otherwise.
+    test_pred_dir = test_labels_pp_dir if spec.use_npz else test_labels_dir
+    dataset_json = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "dataset.json")
+
     # nnUNetv2 evaluate (test set). Score the final test predictions against the test ground
     # truth (labelsTs) and output test set figures.
     try:
         test_gt_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "labelsTs")
-        test_pred_dir = test_labels_pp_dir if spec.use_npz else test_labels_dir
-        
         if os.path.isdir(test_gt_dir) and os.listdir(test_gt_dir):
-            dataset_json = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "dataset.json")
             plans_json = nnunet_runtime.locate_file(artifact_dir, "plans.json")
             cmd = commands.evaluate_folder_command(test_gt_dir, test_pred_dir, dataset_json, plans_json)
             logger.info(f"nnUNetv2_evaluate_folder: {cmd}")
@@ -213,8 +215,18 @@ def train(config):
     except Exception:
         logger.exception("Test-set evaluation/plots failed; continuing.")
 
+    # Send test set predictions to dicom RTSTRUCT. 
+    test_subjects = dm.df[dm.df["IS_TEST_SUBJECT"]]
+    rtstruct_tools.write_contours_to_dicom(
+        predictions_dir=test_pred_dir,
+        dicom_dirs=dict(zip(test_subjects["CASE_NAME"], test_subjects["TEST_DICOM_DIR"])),
+        dataset_json_path=dataset_json,
+        output_dir=os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_rtstruct"),
+        model_name=config["export"]["MODEL_NAME"].strip(),
+    )
+
     # Log non-secret parts of config in MLFlow
-    useful_keys = ['system', 'project', 'data', 'nnunet']
+    useful_keys = ['system', 'project', 'export', 'data', 'nnunet']
     with open(os.path.join(artifact_dir, 'config_log.txt'), 'w') as f:
         for section in useful_keys:
             for key, value in config.items(section):

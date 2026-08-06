@@ -5,7 +5,7 @@ WORKDIR /project
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential git rsync ffmpeg libsm6 libxext6 nano && \
+    apt-get install -y --no-install-recommends build-essential git rsync ffmpeg libsm6 libxext6 libgl1 nano && \
     rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONPATH="/mlflow/projects/code/:$PYTHONPATH"

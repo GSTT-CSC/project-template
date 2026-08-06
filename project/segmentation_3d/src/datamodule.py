@@ -242,15 +242,62 @@ class DataModule_nnUNetV2():
             shutil.copy(find(row["IMAGE_DATA_FILE_NAME"]), image_dest)
             logger.info(f"Wrote {kind} label + image for subject index {row['SUBJECT_INDEX']}")
 
+    @staticmethod
+    def _case_name(idx):
+        """nnU-Net case identifier for a subject, e.g. Case_007.
+        """
+
+        return "Case_" + "{0:03}".format(idx)
+
     def _dataset_dest_uri(self, idx, subfolder, suffix):
-        """Build a Struct_NNN destination path inside the dataset's nnU-Net subfolder."""
+        """Build a Case_NNN destination path inside the dataset's nnU-Net subfolder."""
 
         return os.path.join(
             self.nnunet_raw_dir,
             self.dataset_dir_name,
             subfolder,
-            "Struct_" + "{0:03}".format(idx) + suffix,
+            self._case_name(idx) + suffix,
         )
+
+    @staticmethod
+    def find_image_dicom_resources(subject_data: SubjectData = None):
+        """Return DICOM resources on a subject's image scans (all but RTSTRUCT)."""
+
+        output = []
+        for exp in subject_data.experiments:
+            for scan in exp.scans:
+                if (scan.modality or "").lower() == "rtstruct":
+                    continue
+                for resource in scan.resources:
+                    if resource.label.lower() == "dicom":
+                        output.append(resource)
+        return output
+
+    def download_dicom_series(self, row, xnat_connection):
+        """Download DICOM series and returns the directory path."""
+
+        try:
+            subject = xnat_connection.create_object(row["XNAT_SUBJECT_URI"])
+            dicom_resources = self.find_image_dicom_resources(subject)
+
+            if len(dicom_resources) != 1:
+                logger.warning(
+                    f"Test subject {row['SUBJECT_ID']} has {len(dicom_resources)} image DICOM "
+                    f"resources, expected exactly 1. Which series the contours belong to is "
+                    f"ambiguous, so no dicom contours will be written for it."
+                )
+                return None
+
+            dicom_dir = os.path.join(self.tmp_working_dir, "dicom_Ts", row["CASE_NAME"])
+            os.makedirs(dicom_dir, exist_ok=True)
+            dicom_resources[0].download_dir(dicom_dir, verbose=False)
+            logger.info(f"Downloaded image DICOM series for {row['CASE_NAME']} to {dicom_dir}")
+
+            return dicom_dir
+
+        except Exception:
+            logger.exception(f"Could not download the DICOM series for {row['CASE_NAME']}.")
+            return None
 
     def setup(self):
         """
@@ -278,6 +325,9 @@ class DataModule_nnUNetV2():
                 for subject in self.raw_data
             ]
         )
+
+        # Sort so that splits reproducible across runs, because get_xnat_data() fetches in parallel
+        df = df.sort_values("SUBJECT_ID", ignore_index=True)
 
 
         # 4. Parse regions.json file once
@@ -362,7 +412,8 @@ class DataModule_nnUNetV2():
 
         # 10. Map destination paths
         df["SUBJECT_INDEX"] = df.index + 1
-        
+        df["CASE_NAME"] = df["SUBJECT_INDEX"].map(self._case_name)
+
         df["TRAIN_LABEL_DEST_URI"] = df.apply(
             lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "labelsTr", ".nii.gz") if row["IS_TRAIN_SUBJECT"] else None, axis=1
         )
@@ -376,17 +427,23 @@ class DataModule_nnUNetV2():
             lambda row: self._dataset_dest_uri(row["SUBJECT_INDEX"], "labelsTs", ".nii.gz") if row["IS_TEST_SUBJECT"] else None, axis=1
         )
 
-        self.df = df
-
 
         # 11. Download each subject's XNAT session once (reusing a single connection) and write
         #     its nnU-Net files from that single download (train: label + image; test: image).
+        #     Test subjects also get their image DICOM series, needed to write the predictions
+        #     as RTSTRUCT at the end of the run.
         contour_column_names = [f"CONTOUR_{i+1}_FILE_NAME" for i in range(len(contour_filenames))]
 
         logger.info("Downloading subjects from XNAT and writing nnU-Net dataset files ...")
+        df["TEST_DICOM_DIR"] = None
         with self.xnat_open_connection() as xnat_connection:
-            for _, row in df[df["IS_TRAIN_SUBJECT"] | df["IS_TEST_SUBJECT"]].iterrows():
+            for idx, row in df[df["IS_TRAIN_SUBJECT"] | df["IS_TEST_SUBJECT"]].iterrows():
                 self.process_subject(row, xnat_connection, contour_column_names)
+                if row["IS_TEST_SUBJECT"]:
+                    df.at[idx, "TEST_DICOM_DIR"] = self.download_dicom_series(
+                        row, xnat_connection)
+
+        self.df = df
 
 
         # 12. Construct dataset.json
