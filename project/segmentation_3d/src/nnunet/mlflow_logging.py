@@ -28,6 +28,7 @@ artifact_filenames = {
     "summary.json",
     "config_log.txt",
     "data_manifest.csv",
+    "regions.json",
 }
 
 artifact_filename_patterns = {

@@ -176,26 +176,6 @@ class NNUNetModelSpec:
 
         return plans_identifier_for_planner(self.planner)
 
-    @property
-    def preprocess_configurations(self):
-        """
-        Configurations to preprocess (cascade will use fullres and lowres).
-        """
-
-        if self.configuration == "3d_cascade_fullres":
-            return ["3d_fullres", "3d_lowres"]
-        return [self.configuration]
-
-    @property
-    def training_configurations(self):
-        """
-        Configurations to train, in order (cascade will use lowres then cascade).
-        """
-
-        if self.configuration == "3d_cascade_fullres":
-            return ["3d_lowres", "3d_cascade_fullres"]
-        return [self.configuration]
-
 
 # ======================================================================================
 # Pure nnU-Net CLI command builders
@@ -214,13 +194,13 @@ def multi_gpu_args(device):
     return ["-num_gpus", str(n_visible)] if n_visible > 1 else []
 
 
-def fold_artifact_dir(results_dir, spec, fold, configuration):
+def fold_artifact_dir(results_dir, spec, fold):
     """Directory nnU-Net writes a fold's checkpoints/logs to (used for live metric logging)."""
 
     return os.path.join(
         results_dir,
         spec.dataset_name,
-        f"{spec.trainer_name}__{spec.plans_identifier}__{configuration}",
+        f"{spec.trainer_name}__{spec.plans_identifier}__{spec.configuration}",
         f"fold_{fold}",
     )
 
@@ -254,7 +234,7 @@ def plan_and_preprocess_command(spec):
         "nnUNetv2_plan_and_preprocess",
         "-d", spec.dataset_id,
         "-pl", spec.planner,
-        "-c", *spec.preprocess_configurations,
+        "-c", spec.configuration,
         "--verify_dataset_integrity",
     ]
     if spec.gpu_memory_target is not None:
@@ -262,7 +242,7 @@ def plan_and_preprocess_command(spec):
     return cmd
 
 
-def train_command(spec, fold, configuration, device):
+def train_command(spec, fold, device):
     """
     Run CLI command -> https://github.com/MIC-DKFZ/nnUNet/blob/master/nnunetv2/run/run_training.py.
 
@@ -287,7 +267,7 @@ def train_command(spec, fold, configuration, device):
     cmd = [
         "nnUNetv2_train",
         spec.dataset_id,
-        configuration,
+        spec.configuration,
         str(fold),
         "-tr", spec.trainer_name,
         "-p", spec.plans_identifier,
@@ -332,9 +312,6 @@ def find_best_configuration_command(spec):
           postprocessing Dice, paths to postprocessing.pkl and plans.json, and ready-made commands)
     """
 
-    # See the single-configuration note at the top of this module.
-    if not isinstance(spec.configuration, str):
-        raise ValueError("remove --disable_ensembling for multiple configurations.")
     return [
         "nnUNetv2_find_best_configuration",
         spec.dataset_id,
@@ -362,11 +339,6 @@ def predict_command(spec, input_dir, output_dir, device):
     its own validation (--val_best is off by default), so the two sets of metrics are comparable.
     """
 
-    # See the single-configuration note at the top of this module. With several configurations the
-    # one to predict with comes from find_best_configuration's inference_information.json.
-    if not isinstance(spec.configuration, str):
-        raise ValueError("read -c from inference_instructions.txt for multiple configurations.")
-
     return [
         "nnUNetv2_predict",
         "-d", spec.dataset_id,
@@ -388,10 +360,6 @@ def apply_postprocessing_command(spec, input_dir, output_dir, postprocessing_fil
     folder of predictions, writing the cleaned segmentations to output_dir.
     """
 
-    # See the single-configuration note at the top of this module. With several configurations
-    # -plans_json and -dataset_json must be passed explicitly, from an ensemble member.
-    if not isinstance(spec.configuration, str):
-        raise ValueError("pass -plans_json / -dataset_json for multiple configurations.")
     return [
         "nnUNetv2_apply_postprocessing",
         "-i", input_dir,

@@ -1,9 +1,6 @@
 csc-mlops==0.10.1
 nnunetv2==2.8.0
 matplotlib==3.10.8
-nibabel
-pandas
-scikit-learn
 xnat==0.8.0
 rt-utils==1.2.7
 pydicom==2.4.4

@@ -87,19 +87,28 @@ TMP_WORKING_DIR_<datetime>_<uuid>/
     ├── labelsTs_predicted_pp/                  + postprocessing            [6]
     │   ├── Case_NNN.nii.gz
     │   ├── summary.json                        test metrics vs labelsTs    [7]
-    │   └── dice.png, structure_size.png                                    [8]
-    ├── labelsTs_predicted_rtstruct/                                        [9]
-    │   └── Case_NNN.dcm                        the same predictions as RTSTRUCT
-    ├── config_log.txt                          non-secret config values    [8]
+    │   ├── dice.png, structure_size.png                                    [8]
+    │   └── dicom/Case_NNN.dcm                  the same predictions as RTSTRUCT [9]
+    ├── logs/                                                               [8]
+    │   ├── config_log.txt                      non-secret config values
+    │   └── regions.json                        copy of the one trained on
     └── data_manifest.csv                       per-subject table           [8]
 
 <system tmp>/run.log                            whole console log           [8]
 ```
 
+`dicom/` sits inside whichever prediction folder it was built from: `labelsTs_predicted_pp/`
+normally, or `labelsTs_predicted/` when `NNUNET_NPZ = False` and there is no postprocessing step.
+
+`run.log` is the one thing that does not live under `nnUNet_results/`. It is written to a system
+temp folder from the very first line of the run, so that it still exists (and still reaches
+MLflow) if the run dies before `nnUNet_results/` is created. In MLflow it lands in `logs/`
+next to `config_log.txt`.
+
 ### Test predictions as DICOM RTSTRUCT
 
-`labelsTs_predicted_rtstruct/Case_NNN.dcm` is the same test-set prediction as
-`labelsTs_predicted_pp/Case_NNN.nii.gz`, but in rtstruct format for easy import. 
+`labelsTs_predicted_pp/dicom/Case_NNN.dcm` is the same test-set prediction as
+`labelsTs_predicted_pp/Case_NNN.nii.gz` one folder up, but in rtstruct format for easy import.
 It is built from the files `nnUNetv2_evaluate_folder` scored, so the test Dice
 in MLflow describes what is in the dicom files.
 
@@ -133,4 +142,8 @@ To see what a run settled on, read `patch_size` and `batch_size` from the plans 
 
 ## Not included (follow-ups)
 
-- **`3d_cascade_fullres` inference.** is not supported.
+- `3d_cascade_fullres` inference and training is not supported.
+- Multiple configurations are not supported; if you want to add this, the code needs significant overhaul, 
+and you will need to remove the `--disable_ensembling` flag inside `find_best_configuration_command` and
+adjust `predict_command` and `apply_postprocessing_command` according to nnU-Net documentation.
+The single configuration limitation is well documented throughout `commands.py`.

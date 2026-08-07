@@ -7,32 +7,6 @@ import nibabel as nib
 logger = logging.getLogger(__name__)
 
 
-def create_empty_nifti_like(
-        reference_nifti_uri: str = None,
-        output_nifti_uri: str = None
-        ):
-    """
-    Create an empty NIfTI mask with the same geometry as a reference NIfTI.
-
-    Inputs:
-        reference_nifti_uri
-        output_nifti_uri
-
-    Returns:
-        output_nifti_uri
-    """
-    reference_nifti = nib.load(reference_nifti_uri)
-    empty_mask = np.zeros(reference_nifti.shape, dtype=np.uint8)
-    empty_nifti = nib.nifti1.Nifti1Image(
-        empty_mask,
-        reference_nifti.affine,
-        header=reference_nifti.header.copy(),
-    )
-    nib.save(empty_nifti, output_nifti_uri)
-    logger.info(f"Created empty contour NIfTI at: {output_nifti_uri}")
-    return output_nifti_uri
-
-
 def nifti_contour_combiner(
         input_nifti_uris: List[str] = None,
         output_nifti_uri: str = None

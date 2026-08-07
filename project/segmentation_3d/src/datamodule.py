@@ -478,7 +478,7 @@ class DataModule_nnUNetV2():
         for exp in subject_data.experiments:
             for scan in exp.scans:
                 # Identify RTSTRUCT XNAT ScanData object
-                if scan.modality.lower() == 'rtstruct':
+                if (scan.modality or "").lower() == 'rtstruct':
                     for resource in scan.resources:
                         # Identify NIFTI XNAT Resource object
                         if resource.label.lower() == 'nifti':

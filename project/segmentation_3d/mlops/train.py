@@ -3,6 +3,7 @@ import configparser
 import logging
 import multiprocessing
 import os
+import shutil
 import tempfile
 
 import mlflow
@@ -133,8 +134,9 @@ def train(config):
     # define/bundle parameters for nnunetv2 to run via CLI
     spec = commands.NNUNetModelSpec.from_config(config, dm)
 
-    # base logging folder for MLFlow / nnU-Net
+    # base logging folders for MLFlow / nnU-Net, and the raw dataset. 
     artifact_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name)
+    raw_dataset_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name)
 
     # set nnU-Net env variables
     os.environ["nnUNet_raw"] = dm.nnunet_raw_dir
@@ -151,12 +153,12 @@ def train(config):
 
     # nnUNetv2 training
     for fold in spec.folds:
-        for configuration in spec.training_configurations:
-            cmd = commands.train_command(spec, fold, configuration, device)
-            fold_dir = commands.fold_artifact_dir(dm.nnunet_results_dir, spec, fold, configuration)
-            logger.info(f"nnUNetv2_train (fold {fold}, {configuration}): {cmd}")
-            
-            nnunet_runtime.run_command(cmd, artifact_dir=fold_dir, fold=fold, configuration=configuration, log_metrics=True)
+        cmd = commands.train_command(spec, fold, device)
+        fold_dir = commands.fold_artifact_dir(dm.nnunet_results_dir, spec, fold)
+        logger.info(f"nnUNetv2_train (fold {fold}, {spec.configuration}): {cmd}")
+
+        nnunet_runtime.run_command(cmd, artifact_dir=fold_dir, fold=fold,
+                                   configuration=spec.configuration, log_metrics=True)
 
     # nnUNetv2 find best configuration and postprocessing method
     if spec.use_npz:
@@ -176,15 +178,15 @@ def train(config):
 
     # nnUNetv2 predict (test set). Predictions are written under nnUNet_results (not raw) so
     # log_nnunet_artifacts later picks them up and logs them to MLflow.
-    test_images_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "imagesTs")
-    test_labels_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted")
+    test_images_dir = os.path.join(raw_dataset_dir, "imagesTs")
+    test_labels_dir = os.path.join(artifact_dir, "labelsTs_predicted")
+    test_labels_pp_dir = os.path.join(artifact_dir, "labelsTs_predicted_pp")
     cmd = commands.predict_command(spec, test_images_dir, test_labels_dir, device)
     logger.info(f"nnUNetv2_predict: {cmd}")
     nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
 
     # nnUNetv2 postprocessing (test set)
     if spec.use_npz:
-        test_labels_pp_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_pp")
         postprocessing_file = nnunet_runtime.locate_file(artifact_dir, "postprocessing.pkl")
         cmd = commands.apply_postprocessing_command(spec, test_labels_dir, test_labels_pp_dir, postprocessing_file)
         logger.info(f"nnUNetv2_apply_postprocessing: {cmd}")
@@ -194,12 +196,12 @@ def train(config):
 
     # The final test predictions: postprocessed if we produced them, raw predictions otherwise.
     test_pred_dir = test_labels_pp_dir if spec.use_npz else test_labels_dir
-    dataset_json = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "dataset.json")
+    dataset_json = os.path.join(raw_dataset_dir, "dataset.json")
 
     # nnUNetv2 evaluate (test set). Score the final test predictions against the test ground
     # truth (labelsTs) and output test set figures.
     try:
-        test_gt_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name, "labelsTs")
+        test_gt_dir = os.path.join(raw_dataset_dir, "labelsTs")
         if os.path.isdir(test_gt_dir) and os.listdir(test_gt_dir):
             plans_json = nnunet_runtime.locate_file(artifact_dir, "plans.json")
             cmd = commands.evaluate_folder_command(test_gt_dir, test_pred_dir, dataset_json, plans_json)
@@ -221,16 +223,24 @@ def train(config):
         predictions_dir=test_pred_dir,
         dicom_dirs=dict(zip(test_subjects["CASE_NAME"], test_subjects["TEST_DICOM_DIR"])),
         dataset_json_path=dataset_json,
-        output_dir=os.path.join(dm.nnunet_results_dir, spec.dataset_name, "labelsTs_predicted_rtstruct"),
+        output_dir=os.path.join(test_pred_dir, "dicom"),
         model_name=config["export"]["MODEL_NAME"].strip(),
     )
 
-    # Log non-secret parts of config in MLFlow
+    # Log non-secret parts of config in MLFlow.
+    logs_dir = os.path.join(artifact_dir, "logs")
+    os.makedirs(logs_dir, exist_ok=True)
+
     useful_keys = ['system', 'project', 'export', 'data', 'nnunet']
-    with open(os.path.join(artifact_dir, 'config_log.txt'), 'w') as f:
+    with open(os.path.join(logs_dir, 'config_log.txt'), 'w') as f:
         for section in useful_keys:
             for key, value in config.items(section):
                 f.write(f'{key} = {value}\n')
+        f.write(f'xnat_server = {config["xnat"]["SERVER"]}\n')
+        f.write(f'xnat_project = {config["xnat"]["PROJECT"]}\n')
+
+    # Save regions.json file too for logging purposes.
+    shutil.copy(config["data"]["REGIONS_JSON_PATH"], os.path.join(logs_dir, "regions.json"))
 
     # Per-subject data manifest (the DataModule dataframe) for traceability
     dm.df.to_csv(os.path.join(artifact_dir, 'data_manifest.csv'), index=False)
@@ -247,7 +257,7 @@ def train(config):
         def predict(self, context, model_input):
             return "This is a dummy."
 
-    mlflow.pyfunc.log_model(artifact_path="dummy_model", python_model=DummyModel())
+    mlflow.pyfunc.log_model(name="dummy_model", python_model=DummyModel())
 
     logger.info("nnU-Net v2 workflow complete.")
 

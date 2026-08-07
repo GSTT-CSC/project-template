@@ -12,9 +12,6 @@
             "contour_filenames": [
                 "CONTOUR_NAME_1.nii.gz",
                 "CONTOUR_NAME_2.nii.gz"
-            ],
-            "possibly_empty_contour_filenames": [
-                "CONTOUR_NAME_2.nii.gz"
             ]
         }
     ]

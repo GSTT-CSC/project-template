@@ -61,7 +61,7 @@ def write_contours_to_dicom(predictions_dir: str, dicom_dirs: dict, dataset_json
     os.makedirs(output_dir, exist_ok=True)
 
     logger.info(
-        f"Converting {len(dicom_dirs)} .nii.gz contours to RTSTRUCT."
+        f"Converting {len(dicom_dirs)} .nii.gz contours to RTSTRUCT. "
         f"structures: {list(structure_names.values())}"
     )
 
