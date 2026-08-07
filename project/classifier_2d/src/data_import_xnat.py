@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from xnat.mixin import ImageScanData, SubjectData
 
 from src.transforms import load_xnat
-from src.utils.tools import DataBuilderXNAT
+from shared.xnat_tools import DataBuilderXNAT
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +60,12 @@ class DataImportXNAT():
         """
         
         scan_objects = []
-       
+
         for exp in subject_data.experiments:
-                for scan in subject_data.experiments[exp].scans:
-                    if 'cr' in subject_data.experiments[exp].scans[scan].modality.lower() or 'dx' in subject_data.experiments[exp].scans[scan].modality.lower():
-                        scan_objects.append(subject_data.experiments[exp].scans[scan].uri)
-       
+            for scan in exp.scans:
+                if 'cr' in scan.modality.lower() or 'dx' in scan.modality.lower():
+                    scan_objects.append(scan.uri)
+
         return scan_objects
     
     @staticmethod
@@ -74,10 +74,9 @@ class DataImportXNAT():
         Function that identifies and returns the label from a SubjectData object
         """
         for exp in subject_data.experiments:
-            for scan in subject_data.experiments[exp].scans:
-                    if 'cr' in subject_data.experiments[exp].scans[scan].modality.lower() or 'dx' in subject_data.experiments[exp].scans[scan].modality.lower():
-                        try:
-                            full_label = subject_data.experiments[exp].label
-                            return full_label
-                        except Exception as e:
-                            logger.warning(f"Unable to fetch {subject_data.experiments[exp]}'s label due to exception: {e}")
+            for scan in exp.scans:
+                if 'cr' in scan.modality.lower() or 'dx' in scan.modality.lower():
+                    try:
+                        return exp.label
+                    except Exception as e:
+                        logger.warning(f"Unable to fetch {exp}'s label due to exception: {e}")
