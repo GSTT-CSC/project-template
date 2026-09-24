@@ -15,8 +15,8 @@ from sklearn.model_selection import train_test_split
 from nnunetv2.dataset_conversion.generate_dataset_json import generate_dataset_json
 from xnat.mixin import ImageScanData, SubjectData
 
-from shared.xnat_tools import DataBuilderXNAT
 from src.utils.nifti_tools import nifti_contour_combiner
+from src.utils.xnat_tools import DataBuilderXNAT
 
 pd.set_option('display.max_columns', None, 'display.max_colwidth', None)
 

@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from xnat.mixin import ImageScanData, SubjectData
 
 from src.transforms import load_xnat
-from shared.xnat_tools import DataBuilderXNAT
+from src.utils.xnat_tools import DataBuilderXNAT
 
 logger = logging.getLogger(__name__)
 
