@@ -50,14 +50,18 @@ def log_run_to_mlflow(log_path):
         logger.exception("Failed to log run log to MLflow.")
 
 
+def get_device(config):
+    return config["nnunet"]["NNUNET_DEVICE"].strip().lower()
+
+
 def setup_environment(config):
     """Sets up the following:
-    1) GPU environment -> returns device
+    1) GPU environment
     2) number of workers for XNAT data download -> returns xnat_download_num_workers
     3) number of workers for nnU-Net data loading + augment -> sets nnUNet_n_proc_DA env var
     """
 
-    device = config["nnunet"]["NNUNET_DEVICE"].strip().lower()
+    device = get_device(config)
 
     if device == "cuda":
         cuda_visible_devices = config["system"]["CUDA_VISIBLE_DEVICES"].strip()
@@ -86,7 +90,7 @@ def setup_environment(config):
     max_workers = int(config["system"]["XNAT_DOWNLOAD_NUM_WORKERS"])
     xnat_download_num_workers = min(max_workers, multiprocessing.cpu_count())
 
-    return xnat_download_num_workers, device
+    return xnat_download_num_workers
 
 
 def setup_data(config, xnat_download_num_workers):
@@ -122,29 +126,29 @@ def setup_data(config, xnat_download_num_workers):
     return dm
 
 
-def train(config):
+def train(data, config):
     """Full XNAT data loading -> nnU-Net v2 training -> MLflow logging workflow."""
+
+    device = get_device(config)
 
     # add description of logged metrics in mlflow
     nnunet_mlflow.log_run_overview_description()
 
-    xnat_download_num_workers, device = setup_environment(config)
-    dm = setup_data(config, xnat_download_num_workers)
 
     # define/bundle parameters for nnunetv2 to run via CLI
-    spec = commands.NNUNetModelSpec.from_config(config, dm)
+    spec = commands.NNUNetModelSpec.from_config(config, data)
 
     # base logging folders for MLFlow / nnU-Net, and the raw dataset. 
-    artifact_dir = os.path.join(dm.nnunet_results_dir, spec.dataset_name)
-    raw_dataset_dir = os.path.join(dm.nnunet_raw_dir, spec.dataset_name)
+    artifact_dir = os.path.join(data.nnunet_results_dir, spec.dataset_name)
+    raw_dataset_dir = os.path.join(data.nnunet_raw_dir, spec.dataset_name)
 
     # set nnU-Net env variables
-    os.environ["nnUNet_raw"] = dm.nnunet_raw_dir
-    os.environ["nnUNet_preprocessed"] = dm.nnunet_preprocessed_dir
-    os.environ["nnUNet_results"] = dm.nnunet_results_dir
-    logger.info(f"Env variable set: 'nnUNet_raw' = '{dm.nnunet_raw_dir}'.")
-    logger.info(f"Env variable set: 'nnUNet_preprocessed' = '{dm.nnunet_preprocessed_dir}'.")
-    logger.info(f"Env variable set: 'nnUNet_results' = '{dm.nnunet_results_dir}'.")
+    os.environ["nnUNet_raw"] = data.nnunet_raw_dir
+    os.environ["nnUNet_preprocessed"] = data.nnunet_preprocessed_dir
+    os.environ["nnUNet_results"] = data.nnunet_results_dir
+    logger.info(f"Env variable set: 'nnUNet_raw' = '{data.nnunet_raw_dir}'.")
+    logger.info(f"Env variable set: 'nnUNet_preprocessed' = '{data.nnunet_preprocessed_dir}'.")
+    logger.info(f"Env variable set: 'nnUNet_results' = '{data.nnunet_results_dir}'.")
 
     # nnU-Net v2 preprocessing (generate patch size, batch size, architecture, preprocess data)
     cmd = commands.plan_and_preprocess_command(spec)
@@ -154,7 +158,7 @@ def train(config):
     # nnUNetv2 training
     for fold in spec.folds:
         cmd = commands.train_command(spec, fold, device)
-        fold_dir = commands.fold_artifact_dir(dm.nnunet_results_dir, spec, fold)
+        fold_dir = commands.fold_artifact_dir(data.nnunet_results_dir, spec, fold)
         logger.info(f"nnUNetv2_train (fold {fold}, {spec.configuration}): {cmd}")
 
         nnunet_runtime.run_command(cmd, artifact_dir=fold_dir, fold=fold,
@@ -167,7 +171,7 @@ def train(config):
         nnunet_runtime.run_command(cmd, artifact_dir=artifact_dir)
 
         # Output final validation metrics as figures, from the postprocessed summary.
-        crossval_dir = commands.crossval_results_dir(dm.nnunet_results_dir, spec)
+        crossval_dir = commands.crossval_results_dir(data.nnunet_results_dir, spec)
         nnunet_mlflow.make_metric_plots(
             summary_path=os.path.join(crossval_dir, "postprocessed", "summary.json"),
             dataset_json_path=os.path.join(crossval_dir, "dataset.json"),
@@ -218,7 +222,7 @@ def train(config):
         logger.exception("Test-set evaluation/plots failed; continuing.")
 
     # Send test set predictions to dicom RTSTRUCT. 
-    test_subjects = dm.df[dm.df["IS_TEST_SUBJECT"]]
+    test_subjects = data.df[data.df["IS_TEST_SUBJECT"]]
     rtstruct_tools.write_contours_to_dicom(
         predictions_dir=test_pred_dir,
         dicom_dirs=dict(zip(test_subjects["CASE_NAME"], test_subjects["TEST_DICOM_DIR"])),
@@ -243,7 +247,7 @@ def train(config):
     shutil.copy(config["data"]["REGIONS_JSON_PATH"], os.path.join(logs_dir, "regions.json"))
 
     # Per-subject data manifest (the DataModule dataframe) for traceability
-    dm.df.to_csv(os.path.join(artifact_dir, 'data_manifest.csv'), index=False)
+    data.df.to_csv(os.path.join(artifact_dir, 'data_manifest.csv'), index=False)
 
     # MLflow metadata logging
     logger.info("Storing artifacts in MLflow ...")
@@ -275,7 +279,9 @@ def main():
     config.read(args.config)
 
     try:
-        train(config)
+        xnat_download_num_workers = setup_environment(config)
+        data = setup_data(config, xnat_download_num_workers)
+        train(data, config)
     finally: # log the run to MLFlow whether success or fail
         log_run_to_mlflow(log_path)
 
