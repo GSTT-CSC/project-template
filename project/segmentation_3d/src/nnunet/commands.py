@@ -90,16 +90,17 @@ class NNUNetModelSpec:
     use_npz: bool
 
     @classmethod
-    def from_config(cls, config, dm):
-        """Build the spec from the config file + DataModule (parses + validates)"""
+    def from_config(cls, config, dataset):
+        """Build the spec from the config file + DatasetBuilder (parses + validates)"""
 
-        # dataset_id / dataset_name come from the DataModule, not the config file.
-        if not str(dm.dataset_id).isdigit():
-            raise ValueError(f"DataModule dataset_id must be a numeric string, got: {dm.dataset_id}")
+        # dataset_id / dataset_name come from the DatasetBuilder, not the config file.
+        if not str(dataset.dataset_id).isdigit():
+            raise ValueError(
+                f"DatasetBuilder dataset_id must be a numeric string, got: {dataset.dataset_id}")
 
-        dataset_name = dm.dataset_dir_name.strip()
+        dataset_name = dataset.dataset_dir_name.strip()
         if not dataset_name:
-            raise ValueError("DataModule dataset_dir_name must not be blank.")
+            raise ValueError("DatasetBuilder dataset_dir_name must not be blank.")
 
         # Plain string settings; blank is the only way these can be wrong here.
         plain_settings = {}
@@ -159,7 +160,7 @@ class NNUNetModelSpec:
             raise ValueError(f"Config error: nnunet.NNUNET_NPZ must be True or False, got: {raw_npz}.")
 
         return cls(
-            dataset_id=dm.dataset_id,
+            dataset_id=dataset.dataset_id,
             dataset_name=dataset_name,
             folds=folds,
             configuration=configuration,

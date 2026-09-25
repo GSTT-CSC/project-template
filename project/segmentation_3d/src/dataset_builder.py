@@ -23,7 +23,7 @@ pd.set_option('display.max_columns', None, 'display.max_colwidth', None)
 logger = logging.getLogger(__name__)
 
 
-class DataModule_nnUNetV2():
+class DatasetBuilder_nnUNetV2():
     """From XNAT data, create an nnU-Net v2 compatible dataset.
 
     This is not a lightning ``DataModule``!
@@ -461,7 +461,7 @@ class DataModule_nnUNetV2():
             image_channel_name=image_channel_name,
         )
 
-        logger.info("DataModule_nnUNetV2.setup() complete.")
+        logger.info("DatasetBuilder_nnUNetV2.setup() complete.")
 
 
     @staticmethod

@@ -25,6 +25,35 @@ This repository contains mutliple folders with useful files depending on the typ
 The first thing to do after cloning this template is to delete unnecessary folders, and rename the remaining one specific to your project.
 For example if creating a fracture classifier on X-Rays, the `2D_Classifier' directory should be kept and then renamed to 'Fracture' to make it clear that it contains your project files. 
 
+## Rationale for data preparation structures
+
+The task templates prepare their data in two different ways, depending on the task. It depends
+on how the training framework takes ownership of the data.
+
+### Method 1 - the framework takes a Python object
+
+PyTorch Lightning (and anything else that consumes a `Dataset` / `DataLoader`) takes its input as
+a Python object. The data is transfered into a Python object in two distinct steps:
+
+- `setup_data()` connects to XNAT and downloads the raw data, and lives in `main()`;
+- a lightning `DataModule` then turns that data into train / validation / test dataloaders, and lives roughly at the start of the training method.
+
+`classifier_2d` follows this pattern.
+
+### Method 2 - the framework takes a directory
+
+Some frameworks own their whole data pipeline. They do their own loading, augmentation and
+preprocessing, and take their input as a directory layout on disk plus a descriptor file. Some examples:
+
+- **nnU-Net v2** expects `DatasetXXX_<name>/{imagesTr,labelsTr,imagesTs}` plus a `dataset.json`,
+  then runs via its own CLI (`nnUNetv2_plan_and_preprocess`, `nnUNetv2_train`, ...)
+- **Ultralytics YOLO** expects `images/{train,val}` and `labels/{train,val}` plus a dataset YAML
+  giving `path`, `train`, `val` and `names`
+
+Here there are no dataloaders for the template to build. Instead, acquisition and organisation are handled together in a single step before training, because each file's destination depends on decisions that are usually made in a dataloader downstream, e.g. what subject ends up being in train/validation/test.
+
+`segmentation_3d` follows this pattern.
+
 #### Examples of projects that have been built using the project template:
 
 https://github.com/GSTT-CSC/AutoSegCT

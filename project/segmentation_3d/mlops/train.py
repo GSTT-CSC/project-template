@@ -8,7 +8,7 @@ import tempfile
 
 import mlflow
 
-from src.datamodule import DataModule_nnUNetV2
+from src.dataset_builder import DatasetBuilder_nnUNetV2
 import src.nnunet.commands as commands
 import src.nnunet.runtime as nnunet_runtime
 import src.nnunet.mlflow_logging as nnunet_mlflow
@@ -94,7 +94,7 @@ def setup_environment(config):
 
 
 def setup_data(config, xnat_download_num_workers):
-    """Build the nnU-Net dataset from XNAT and return the prepared DataModule."""
+    """Build the nnU-Net dataset from XNAT and return the prepared DatasetBuilder."""
 
     xnat_configuration = {
         "server": config["xnat"]["SERVER"],
@@ -111,7 +111,7 @@ def setup_data(config, xnat_download_num_workers):
         "nnunet_preprocessed_dir": config["nnunet"]["NNUNET_PREPROCESSED_DIR"],
     }
 
-    dm = DataModule_nnUNetV2(
+    dataset = DatasetBuilder_nnUNetV2(
         xnat_configuration=xnat_configuration,
         train_fraction=float(config["data"]["TRAIN_FRACTION"]),
         test_fraction=float(config["data"]["TEST_FRACTION"]),
@@ -121,9 +121,9 @@ def setup_data(config, xnat_download_num_workers):
         regions_json_path=config["data"]["REGIONS_JSON_PATH"],
     )
 
-    dm.setup()  # pull from XNAT + organise dataset locally as required by nnU-Net
+    dataset.setup()  # pull from XNAT + organise dataset locally as required by nnU-Net
 
-    return dm
+    return dataset
 
 
 def train(data, config):
@@ -246,7 +246,7 @@ def train(data, config):
     # Save regions.json file too for logging purposes.
     shutil.copy(config["data"]["REGIONS_JSON_PATH"], os.path.join(logs_dir, "regions.json"))
 
-    # Per-subject data manifest (the DataModule dataframe) for traceability
+    # Per-subject data manifest (the DatasetBuilder dataframe) for traceability
     data.df.to_csv(os.path.join(artifact_dir, 'data_manifest.csv'), index=False)
 
     # MLflow metadata logging

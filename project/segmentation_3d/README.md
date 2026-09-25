@@ -30,7 +30,7 @@ show which step wrote each thing:
 
 | | step | what runs it |
 |---|---|---|
-| `[1]` | build the dataset from XNAT | `dm.setup()` (`src/datamodule.py`) |
+| `[1]` | build the dataset from XNAT | `dataset.setup()` (`src/dataset_builder.py`) |
 | `[2]` | `nnUNetv2_plan_and_preprocess` | measure data, plan, preprocess |
 | `[3]` | `nnUNetv2_train` | once per fold |
 | `[4]` | `nnUNetv2_find_best_configuration` | postprocessing decision + crossval summary |
