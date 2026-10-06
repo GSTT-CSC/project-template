@@ -1,5 +1,5 @@
 captum==0.8.0
-csc-mlops==0.10.1
+csc-mlops==0.11.0
 flake8==7.1.1
 opencv-python==4.10.0.84
 optuna==4.2.1
