@@ -5,6 +5,7 @@ import tempfile
 import uuid
 import logging
 import json
+import pydicom
 import xnat
 import pandas as pd
 from datetime import datetime
@@ -292,6 +293,13 @@ class DatasetBuilder_nnUNetV2():
             os.makedirs(dicom_dir, exist_ok=True)
             dicom_resources[0].download_dir(dicom_dir, verbose=False)
             logger.info(f"Downloaded image DICOM series for {row['CASE_NAME']} to {dicom_dir}")
+
+            # XNAT anonymisation can remove StudyTime, which rt-utils needs to write the RTSTRUCT.
+            for path in glob.glob(os.path.join(dicom_dir, "**", "*.dcm"), recursive=True):
+                ds = pydicom.dcmread(path)
+                if "StudyTime" not in ds:
+                    ds.StudyTime = "000000"
+                    ds.save_as(path)
 
             return dicom_dir
 
