@@ -271,7 +271,7 @@ def run_tuning(data, num_workers, config):
 
 def main():
     
-    # runs as train_tune.py <config_file_path> via mlops run()
+    # runs as train.py <config_file_path> via mlops run()
     parser = argparse.ArgumentParser()
     parser.add_argument('config')
     args = parser.parse_args()

@@ -1,25 +1,12 @@
-# Core ML framework
-torch==2.6.0
-torchvision==0.21.0
-
-# Training & metrics
-pytorch-lightning==2.5.0
-torchmetrics==1.6.1
-
-# Model architectures & interpretability
-timm==1.0.15
 captum==0.8.0
-
-# Hyperparameter optimisation
-optuna==4.2.1
-
-# Data & imaging
-opencv-python==4.10.0.84
-xnat==0.5.1
-
-# MLOps
-csc-mlops==0.10.0
-
-# Code quality
+csc-mlops==0.10.1
 flake8==7.1.1
+opencv-python==4.10.0.84
+optuna==4.2.1
+pytorch-lightning==2.5.0
+timm==1.0.15
+torch==2.6.0
+torchmetrics==1.6.1
+torchvision==0.21.0
+xnat==0.8.0
 yapf==0.43.0
